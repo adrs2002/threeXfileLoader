@@ -3,11 +3,14 @@ import * as XfileLoadMode from './parts/xFileLoadMode'
 import * as Xdata from './parts/rawXdata.js'
 import * as XboneInf from './parts/xBoneInf'
 import * as XAnimationInfo from './parts/xAnimationInfo'
+import * as XAnimationObj from './parts/XAnimationObj'
+import * as XFrameInfo from './parts/XFrameInfo'
+
 
 /**
  * @author Jey-en 
  *
- * This loader loads X file in ASCII Only!!
+ * This loader loads .X file (for old DirectX) in ASCII Only!!
  *
  * Support
  *  - mesh
@@ -78,13 +81,9 @@ class XFileLoader {
         this.lines = null;
         this.KeyInfo = null;
 
+        this.animeKeyNames = null;
         this.data = null;
         this.onLoad = null;
-    }
-
-    // プロトタイプのメソッド - ruleHelper.isFuga()
-    isFuga() {
-        alert('fatti');
     }
 
     //読み込み開始命令部
@@ -973,7 +972,35 @@ class XFileLoader {
 
     //ガチ最終・アニメーションを独自形式→Three.jsの標準に変換する
     animationFinalize() {
-        this.onLoad(this.LoadingXdata);
+        if (this.LoadingXdata.AnimationSetInfo.length > 0) {
+            this.nowReaded = 0;
+            this.LoadingXdata.XAnimationObj = [];
+            this.animeKeyNames = Object.keys(this.LoadingXdata.AnimationSetInfo);
+
+            animationFinalize_step();
+        } else {
+            finalproc();
+        }
+    }
+
+
+    animationFinalize_step() {
+        const i = this.nowReaded;
+        this.LoadingXdata.XAnimationObj[i] = new XAnimationObj();
+        this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
+        this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
+        this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], LoadingXdata.FrameInfo_Raw[this.animeKeyNames[i]]);
+
+        this.nowReaded++;
+        if (this.nowReaded >= this.LoadingXdata.AnimationSetInfo.lengt) {
+            finalproc();
+        } else {
+            animationFinalize_step();
+        }
+    }
+
+    finalproc() {
+        setTimeout(this.onLoad(this.LoadingXdata), 0);
     }
 }
 export default XFileLoader;

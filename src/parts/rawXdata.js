@@ -1,4 +1,5 @@
 
+import * as XAnimationObj from './XAnimationObj'
 
 class Xdata {
     constructor() {
@@ -11,6 +12,8 @@ class Xdata {
         this.AnimationSetInfo = new Array();
 
         this.AnimTicksPerSecond = 60;
+        
+        this.XAnimationObj = null;
     }
 }
 export default Xdata;
