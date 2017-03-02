@@ -1,7 +1,7 @@
 
 import * as XAnimationObj from './XAnimationObj'
 
-class Xdata {
+export default class Xdata {
     constructor() {
         //XFrameInfo Array(final output)
         this.FrameInfo = new Array();
@@ -15,5 +15,4 @@ class Xdata {
         
         this.XAnimationObj = null;
     }
-}
-export default Xdata;
+};

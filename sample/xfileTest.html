@@ -1,0 +1,423 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>three.js webgl - X-File loader</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #000;
+            color: #fff;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            color: #fff;
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            z-index: 100;
+            display: block;
+        }
+
+            #info a, .button {
+                color: #f00;
+                font-weight: bold;
+                text-decoration: underline;
+                cursor: pointer;
+            }
+    </style>
+</head>
+
+<body>
+
+    <div style="width:100%; text-align: right;">
+<input type="button" value="ボーンツリー表示" onclick="togleTreeVis();">
+
+<a href="https://github.com/adrs2002/THREE.JS.XfileLoader"> THREE.JS.XfileLoader </a>
+</div>
+<div id="canvase3d"></div>
+<!-- 描画領域のためのdiv要素を配置 -->
+
+<div id="dialog_tree" style="width:90%; height:90%;display:none;">
+<ul id="bonetree" class="treeview"></ul>
+</div>
+
+
+<script src="three.min.js"></script>
+
+<script src="lib/OrbitControls.js"></script>
+
+<script src="../threeXfileLoader.js"></script>
+
+<script src="lib/Detector.js"></script>
+<script src="lib/stats.min.js"></script>
+
+<script id="oresell_fs" type="x-shader/x-fragment">
+
+#define PHONG 
+uniform vec3 diffuse;
+uniform vec3 emissive;
+uniform vec3 specular;
+uniform float shininess;
+uniform float opacity;
+#include <common>
+#include <packing>
+#include <color_pars_fragment>
+#include <uv_pars_fragment>
+#include <uv2_pars_fragment>
+#include <map_pars_fragment>
+#include <alphamap_pars_fragment>
+#include <aomap_pars_fragment>
+#include <lightmap_pars_fragment>
+#include <emissivemap_pars_fragment>
+#include <envmap_pars_fragment>
+#include <gradientmap_pars_fragment>
+#include <fog_pars_fragment>
+#include <bsdfs>
+#include <lights_pars>
+#include <lights_phong_pars_fragment>
+#include <shadowmap_pars_fragment>
+#include <bumpmap_pars_fragment>
+#include <normalmap_pars_fragment>
+#include <specularmap_pars_fragment>
+#include <logdepthbuf_pars_fragment>
+#include <clipping_planes_pars_fragment>
+
+uniform sampler2D selltex;
+
+ void main() {	
+#include <clipping_planes_fragment>	
+ vec4 diffuseColor = vec4( diffuse, opacity );
+ ReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );
+ vec3 totalEmissiveRadiance = emissive; 
+#include <logdepthbuf_fragment>	
+
+vec4 texelColor = texture2D( map, vUv );
+texelColor = mapTexelToLinear( texelColor );
+	
+#include <color_fragment>	
+#include <alphamap_fragment>	
+#include <alphatest_fragment>	
+#include <specularmap_fragment>	
+#include <normal_flip>	
+#include <normal_fragment>	
+#include <emissivemap_fragment>	
+#include <lights_phong_fragment>	
+#include <lights_template>	
+#include <aomap_fragment>	
+
+ vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.directSpecular + reflectedLight.indirectSpecular ;	
+
+#include <envmap_fragment>
+ gl_FragColor = vec4( outgoingLight, diffuseColor.a );	 
+ //vec4 tex2 = texture2D(selltex, vec2(0.0, totalEmissiveRadiance /* + length(ambientLight) * 0.33 ) +  length(emissive) * 0.33*/ ));  
+ //gl_FragColor = diffuseColor * tex2 ;
+
+
+
+ float difpow = gl_FragColor.r + gl_FragColor.g + gl_FragColor.b;
+ difpow = difpow* 0.333;
+ vec4 tex2 = texture2D(selltex, vec2(0.0, difpow )); 
+ gl_FragColor = tex2 * texelColor  + vec4(reflectedLight.indirectDiffuse + totalEmissiveRadiance , 0.0);
+
+ 
+ //debug put use
+ //gl_FragColor = vec4(	difpow, difpow, difpow, 1.0); 
+ //gl_FragColor = vec4(reflectedLight.indirectDiffuse + totalEmissiveRadiance  , 1.0);
+ 
+
+#include <premultiplied_alpha_fragment>	
+#include <tonemapping_fragment>	
+#include <encodings_fragment>	
+#include <fog_fragment>
+
+
+ }
+ 
+    </script>
+
+
+<script>
+
+        function togleTreeVis() {
+            document.getElementById("dialog_tree").style.display = document.getElementById("dialog_tree").style.display == 'block' ? 'none' : 'block';
+        }
+        //文字列連結用StringBuffer
+        var StringBuffer = function (string) {
+            this.buffer = [];
+            this.append = function (string) { this.buffer.push(string); return this; };
+            this.toString = function () { return this.buffer.join(''); };
+            if (string) { this.append(string); }
+        };
+        //Three.jsおきまりの宣言
+        if (!Detector.webgl) Detector.addGetWebGLMessage();
+        var container, stats, controls;
+        var camera, scene, renderer;
+        var clock = new THREE.Clock();
+
+        //Three.jsの負荷の少ないLoaderの恩恵をテクスチャで受けるために、これは別途用意
+        var Texloader = null;
+
+        //ボーンをHTML要素で出力するための入れ物。出さないのであれば必要ない
+        var ParentList = null;
+
+        //ボーンの位置を表示するThree.Jsのヘルパーライブラリ用。必須ではない
+        var skeletonHelper = null;
+
+        var Models = new Array();
+        var WpnModel = {};
+
+        var animateInf = null;
+
+        var DashAnime = null;
+
+        var handR_parentBone = null;
+        var handL_parentBone = null;
+
+        var sholR_parentBone = null;
+        var sholL_parentBone = null;
+
+        var d = new Date();
+        var LastDateTime = null;
+        var addCamVect = new THREE.Vector3(0, 0, 1);
+
+        var animateObj = null;
+        var light_cam = null;
+
+        var ambientColor = new THREE.Color();
+        var mainLight = null;
+
+        init();
+
+        function init() {
+
+            XfileLoader_IsUvYReverse = true;
+            LastDateTime = Date.now();
+            XfileLoader_IsPosZReverse = false;
+
+            container = document.createElement('canvase3d');
+            document.body.appendChild(container);
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.AddQ = new THREE.Quaternion();
+            scene = new THREE.Scene();
+            // grid
+            var gridHelper = new THREE.GridHelper(14, 1, 0x303030, 0x303030);
+            gridHelper.position.set(0, -0.04, 0);
+            scene.add(gridHelper);
+            // stats
+            stats = new Stats();
+            container.appendChild(stats.dom);
+
+            
+            mainLight= new THREE.DirectionalLight(0xffffff, 0.6);
+            mainLight.position.set(10, 10, -10).normalize();
+            scene.add(mainLight);
+
+            var ambientLight = new THREE.AmbientLight(0xafaaaa);
+            ambientLight.color.multiplyScalar(0.2);
+            scene.add(ambientLight);            
+            ambientColor = new THREE.Color().copy(ambientLight.color);
+
+
+            light_cam = new THREE.DirectionalLight(0xffffff, 0.1);
+            light_cam.position.set(2, 5, -28).normalize();
+            light_cam.castShadow = false;
+            scene.add(light_cam);
+
+
+            //Three.jsのロードマネージャー。コレで一斉DLさせないコントロールとか、諸々やってくれる
+            var manager = new THREE.LoadingManager();
+            manager.onProgress = function (item, loaded, total) {
+                console.log(item, loaded, total);
+            };
+            var onProgress = function (xhr) {
+                if (xhr.lengthComputable) {
+                    var percentComplete = xhr.loaded / xhr.total * 100;
+                    console.log(Math.round(percentComplete, 2) + '% downloaded');
+                }
+            };
+            var onError = function (xhr) {
+            };
+
+            Texloader = new THREE.TextureLoader();
+
+            //やっとXFileローダーが初期化
+            var loader = new XFileLoader(manager, Texloader);
+
+            //モデルを読み込む
+            loader.load(['content/puttest.x?ver=1001', true, true], function (object) {
+                //読み込みが終わったオブジェクトを、シーンに追加する
+                for (var i = 0; i < object.FrameInfo.length; i++) {
+                object.FrameInfo[i].position.y = -2;
+                    Models.push(object.FrameInfo[i]);
+                    Models[i].position.y = 0;
+                    scene.add(Models[i]);
+                }
+
+                //サーフェイスのセット    
+                for (var i = 0; i < object.FrameInfo[0].material.materials.length; i++) {
+
+					/*
+                    var material = new THREE.ShaderMaterial({
+                        uniforms: {
+                        	mat_Diffuse: { value: object.FrameInfo[0].material.materials[i].color },
+                            mat_shininessVal: { value: object.FrameInfo[0].material.materials[i].shininess },
+                            mat_Specular: { value: object.FrameInfo[0].material.materials[i].specular },
+                            mat_Emissive: { value: object.FrameInfo[0].material.materials[i].emissive },
+
+                            ambientLight: { value: ambientColor },
+                            LightColor: { value: mainLight.color },
+                            mainLightVector: { value: mainLight.position },
+                            mainLightShines: { value: mainLight.intensity   },
+
+                            camLightVector: { value: light_cam.position  },
+                            camLightShines: { value: light_cam.intensity  },
+
+                            texture : { type: "t", value: object.FrameInfo[0].material.materials[i].map },
+                            texture2 : { type: "t", value: Texloader.load( "content/sell1.png" )  }
+                        },
+                        //attributes: {},
+                        vertexShader: document.getElementById('oresell_vs').textContent,
+                        fragmentShader: document.getElementById('oresell_fs').textContent
+                    });
+					*/
+					
+					var phongShader = THREE.ShaderLib['phong'];
+					var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
+
+					uniforms.diffuse.value = object.FrameInfo[0].material.materials[i].color;
+					uniforms.shininess.value = object.FrameInfo[0].material.materials[i].shininess;
+					uniforms.emissive.value = object.FrameInfo[0].material.materials[i].emissive;
+					uniforms.specular.value = object.FrameInfo[0].material.materials[i].specular;
+
+					//var texture = THREE.ImageUtils.loadTexture('images/texture.jpg');
+					//uniforms['map'].value = object.FrameInfo[0].material.materials[i].map ;
+					uniforms.map = {type:"t", value:object.FrameInfo[0].material.materials[i].map};
+					uniforms.selltex = {type:"t",  value: object.FrameInfo[0].material.materials[i].lightMap };
+					
+					var defines = {};
+					defines[ "USE_MAP" ] = "";
+
+					var material = new THREE.ShaderMaterial({
+					    uniforms: uniforms,
+					    defines: defines,
+					    vertexShader: phongShader.vertexShader,
+					    fragmentShader: document.getElementById('oresell_fs').textContent,
+					    lights:true,
+					    fog: true
+					});
+
+					//material.map = true;
+                    object.FrameInfo[0].material.materials[i] = material;
+                    
+                    
+                }
+
+                object = null;
+            }, onProgress, onError);
+
+            //以下はThree.Jsでおきまり処理が続く
+            renderer = new THREE.WebGLRenderer({antialias: true});
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x666666);
+            container.appendChild(renderer.domElement);
+            // controls, camera
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 2.5, 0);
+            camera.position.set(-0.5, 2.5, -1);
+            camera.up.set(0, 1, 0);
+            ///////////
+
+            controls.update();
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+
+        }
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        //枚フレーム通る、フレーム更新処理
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            //ボーンの移動量計算のため、「前回の描画からの時間の経過」をしっかりと算出しておく必要がある
+            var nowTime = Date.now();
+            var dulTime = nowTime - LastDateTime;
+
+            LastDateTime = nowTime;
+            /*
+                       if (Models != null && Models.length > 0) {
+                           //ボーンの位置をアップデート。
+                           animateObj.update(dulTime);
+           
+                           //手のボーン位置に、別モデル（武器）を移動して、持たせる
+                           //上の「ボーンのUpdate」より後に置かないと、位置がずれるので注意
+                           if (handR_parentBone != null && WpnModel["Rw_Bmlf_2"] != null) {
+                               WpnModel["Rw_Bmlf_2"].matrix = new THREE.Matrix4();
+                               var rolx = new THREE.Matrix4();
+                               rolx.makeRotationX(Math.PI);
+                               WpnModel["Rw_Bmlf_2"].applyMatrix(handR_parentBone.matrixWorld.multiply(rolx));
+                           }
+           
+                           //ボーンを線で表示するヘルパーも同じく更新
+                           if (skeletonHelper != null) { skeletonHelper.update(); }
+           
+                       }
+           */
+
+            //カメラの位置に光源を置く
+            if (light_cam != null) {
+                var tmpPos = new THREE.Vector3().copy(camera.position);
+                tmpPos.y += 2;
+                //tmpPos.x += 1;
+                light_cam.position.copy(tmpPos).normalize();
+             
+            }
+            stats.update();
+            render();
+        }
+
+        function render() {
+            renderer.render(scene, camera);
+        }
+
+        //ボーンツリー出力のHTMLタグを作成する
+        function putChildrenName(_xinf, baseObj) {
+            //ParentList = new StringBuffer();
+            ParentList.append('<li class=\'closed\'> <span>');
+            ParentList.append(_xinf.FrameName);
+
+            ParentList.append('</span>');
+            if (_xinf.children.length > 0) {
+                ParentList.append('<ul >');
+                for (var i = 0; i < _xinf.children.length; i++) {
+                    ParentList.append(putChildrenName(baseObj.FrameInfo_Raw[_xinf.children[i]], baseObj));
+                }
+                ParentList.append('</ul >');
+            }
+            ParentList.append('</li>');
+            //return sb.toString();
+        }
+
+        function getInvers(_bone, _mx) {
+            if (_bone.parent != null) {
+
+            }
+        }
+
+    </script>
+
+</body>
+
+</html>

@@ -4,7 +4,7 @@ import babel        from 'rollup-plugin-babel'
 
 export default {
   entry: 'src/threeXfileLoader.js',
-  dest: 'build/threeXfileLoader.js',
+  dest: 'threeXfileLoader.js',
   plugins: [
     nodeResolve({ jsnext: true }), // npmモジュールを`node_modules`から読み込む
     commonjs(), // CommonJSモジュールをES6に変換
