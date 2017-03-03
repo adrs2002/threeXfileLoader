@@ -7,7 +7,7 @@ import XboneInf from './parts/xBoneInf.js'
 import XAnimationInfo from './parts/xAnimationInfo.js'
 import XAnimationObj from './parts/XAnimationObj.js'
 import XFrameInfo from './parts/XFrameInfo.js'
-
+import KeyFrameInfo from './parts/KeyFrameInfo.js'
 
 /**
  * @author Jey-en 
@@ -93,7 +93,7 @@ class XFileLoader {
     //読み込み開始命令部
     load(_arg, onLoad, onProgress, onError) {
 
-        const loader = new THREE.XHRLoader(this.manager);
+        const loader = new THREE.FileLoader(this.manager);
         loader.setResponseType('arraybuffer');
 
         for (let i = 0; i < _arg.length; i++) {
@@ -385,7 +385,7 @@ class XFileLoader {
                 this.FrameHierarchie.pop();
             }
 
-            this.MakeOutputGeometry(this.LoadingXdata, this.nowFrameName, this.zflg);
+            this.MakeOutputGeometry(this.nowFrameName, this.zflg);
             this.FrameStartLv = this.LoadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv;
 
             //読み込み中のフレームを一段階上に戻す
@@ -747,7 +747,7 @@ class XFileLoader {
 
         this.nowAnimationSetName = line.substr(13, line.length - 14).trim();    //13ってのは　AnimationSet  の文字数。 14は AnimationSet に末尾の  { を加えて、14
         this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName] = new Array();
-        this.LoadingXdata.AnimTicksPerSecond = XfileLoader_DefaultFrameRate;
+        this.LoadingXdata.AnimTicksPerSecond = 60;
     }
 
     readAndCreateAnimation(line) {
@@ -761,7 +761,7 @@ class XFileLoader {
         //想定からずれるものがあったらカスタマイズしてくれ･･そのためのオープンソースだ。
         while (true) {
             this.endLineCount++;
-            line = lines[this.endLineCount].trim();
+            line = this.lines[this.endLineCount].trim();
             if (line.indexOf("{") > -1 && line.indexOf("}") > -1) {
                 this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].BoneName = line.replace(/{/g, "").replace(/}/g, "").trim();
                 break;
@@ -791,7 +791,7 @@ class XFileLoader {
 
         if (!frameFound) {
             this.KeyInfo = new KeyFrameInfo();
-            this.KeyInfo.Matrix = new THREE.Matrix4();
+            this.KeyInfo.matrix = new THREE.Matrix4();
             this.KeyInfo.Frame = nowKeyframe;
         }
 
@@ -800,23 +800,25 @@ class XFileLoader {
         switch (this.nowAnimationKeyType) {
             case 0:
                 tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2])));
-                this.KeyInfo.Matrix.multiply(tmpM);
+                this.KeyInfo.matrix.multiply(tmpM);
                 break;
             case 1:
                 tmpM.makeScale(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
-                this.KeyInfo.Matrix.multiply(tmpM);
+                this.KeyInfo.matrix.multiply(tmpM);
                 break;
             case 2:
                 tmpM.makeTranslation(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
-                this.KeyInfo.Matrix.multiply(tmpM);
+                this.KeyInfo.matrix.multiply(tmpM);
                 break;
-            //case 3: this.KeyInfo.Matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
+            //case 3: this.KeyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
             case 4:
-                this.ParseMatrixData(this.KeyInfo.Matrix, data);
+                this.ParseMatrixData(this.KeyInfo.matrix, data);
                 break;
         }
 
         if (!frameFound) {
+            this.KeyInfo.index = this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].KeyFrames.length;
+            this.KeyInfo.time = 1.0 / this.LoadingXdata.AnimTicksPerSecond * this.KeyInfo.Frame;
             this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].KeyFrames.push(this.KeyInfo);
         }
 
@@ -862,19 +864,19 @@ class XFileLoader {
 
 
     //最終的に出力されるTHREE.js型のメッシュ（Mesh)を確定する
-    MakeOutputGeometry(LoadingXdata, nowFrameName, _zflg) {
+    MakeOutputGeometry(nowFrameName, _zflg) {
 
-        if (LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
+        if (this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
 
             //１つのmesh終了
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingBox();
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingSphere();
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingBox();
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingSphere();
 
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.verticesNeedUpdate = true;
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.normalsNeedUpdate = true;
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.colorsNeedUpdate = true;
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.uvsNeedUpdate = true;
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.groupsNeedUpdate = true;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.verticesNeedUpdate = true;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.normalsNeedUpdate = true;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.colorsNeedUpdate = true;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.uvsNeedUpdate = true;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.groupsNeedUpdate = true;
 
             //ボーンの階層構造を作成する
             //BoneはFrame階層基準で作成、その後にWeit割り当てのボーン配列を再セットする
@@ -882,17 +884,17 @@ class XFileLoader {
             const putBones = new Array();
             const BoneDics = new Array();
             let rootBone = new THREE.Bone();
-            if (LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs != null && LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length) {
-                const keys = Object.keys(LoadingXdata.FrameInfo_Raw);
+            if (this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs != null && this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length) {
+                const keys = Object.keys(this.LoadingXdata.FrameInfo_Raw);
                 const BoneDics_Name = new Array();
                 for (let m = 0; m < keys.length; m++) {
-                    if (LoadingXdata.FrameInfo_Raw[keys[m]].FrameStartLv <= LoadingXdata.FrameInfo_Raw[nowFrameName].FrameStartLv && nowFrameName != keys[m]) { continue; }
+                    if (this.LoadingXdata.FrameInfo_Raw[keys[m]].FrameStartLv <= this.LoadingXdata.FrameInfo_Raw[nowFrameName].FrameStartLv && nowFrameName != keys[m]) { continue; }
 
                     const b = new THREE.Bone();
                     b.name = keys[m];
-                    b.applyMatrix(LoadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
+                    b.applyMatrix(this.LoadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
                     b.matrixWorld = b.matrix;
-                    b.FrameTransformMatrix = LoadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
+                    b.FrameTransformMatrix = this.LoadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
                     BoneDics_Name[b.name] = putBones.length;
                     putBones.push(b);
                 }
@@ -900,8 +902,8 @@ class XFileLoader {
 
                 //今度はボーンの親子構造を作成するために、再度ループさせる
                 for (let m = 0; m < putBones.length; m++) {
-                    for (let dx = 0; dx < LoadingXdata.FrameInfo_Raw[putBones[m].name].children.length; dx++) {
-                        const nowBoneIndex = BoneDics_Name[LoadingXdata.FrameInfo_Raw[putBones[m].name].children[dx]];
+                    for (let dx = 0; dx < this.LoadingXdata.FrameInfo_Raw[putBones[m].name].children.length; dx++) {
+                        const nowBoneIndex = BoneDics_Name[this.LoadingXdata.FrameInfo_Raw[putBones[m].name].children[dx]];
                         if (putBones[nowBoneIndex] != null) {
                             putBones[m].add(putBones[nowBoneIndex]);
                         }
@@ -911,7 +913,7 @@ class XFileLoader {
 
             let mesh = null;
             if (putBones.length > 0) {
-                if (LoadingXdata.FrameInfo_Raw[putBones[0].name].children.length === 0 && nowFrameName != putBones[0].name) {
+                if (this.LoadingXdata.FrameInfo_Raw[putBones[0].name].children.length === 0 && nowFrameName != putBones[0].name) {
                     putBones[0].add(putBones[1]);
                     putBones[0].zflag = _zflg;
                 }
@@ -922,43 +924,43 @@ class XFileLoader {
                         putBones[m].zflag = _zflg;
                     }
 
-                    for (let bi = 0; bi < LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
-                        if (putBones[m].name === LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].BoneName) {
+                    for (let bi = 0; bi < this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
+                        if (putBones[m].name === this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].BoneName) {
                             //ウェイトのあるボーンであることが確定。頂点情報を割り当てる
-                            for (let vi = 0; vi < LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces.length; vi++) {
+                            for (let vi = 0; vi < this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces.length; vi++) {
                                 //頂点へ割り当て
-                                const nowVertexID = LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces[vi];
-                                const nowVal = LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Weights[vi];
+                                const nowVertexID = this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces[vi];
+                                const nowVal = this.LoadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Weights[vi];
 
-                                switch (LoadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]) {
+                                switch (this.LoadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]) {
                                     case 0:
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].x = m;
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].x = nowVal;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].x = m;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].x = nowVal;
                                         break;
                                     case 1:
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].y = m;
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].y = nowVal;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].y = m;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].y = nowVal;
                                         break;
                                     case 2:
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].z = m;
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].z = nowVal;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].z = m;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].z = nowVal;
                                         break;
                                     case 3:
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].w = m;
-                                        LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].w = nowVal;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].w = m;
+                                        this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].w = nowVal;
                                         break;
                                 }
-                                LoadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]++;
+                                this.LoadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]++;
                             }
                         }
                     }
                 }
 
-                for (let sk = 0; sk < LoadingXdata.FrameInfo_Raw[nowFrameName].Materials.length; sk++) {
-                    LoadingXdata.FrameInfo_Raw[nowFrameName].Materials[sk].skinning = true;
+                for (let sk = 0; sk < this.LoadingXdata.FrameInfo_Raw[nowFrameName].Materials.length; sk++) {
+                    this.LoadingXdata.FrameInfo_Raw[nowFrameName].Materials[sk].skinning = true;
                 }
 
-                mesh = new THREE.SkinnedMesh(LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry, new THREE.MeshFaceMaterial(LoadingXdata.FrameInfo_Raw[nowFrameName].Materials));
+                mesh = new THREE.SkinnedMesh(this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry, new THREE.MultiMaterial(this.LoadingXdata.FrameInfo_Raw[nowFrameName].Materials));
                 const skeleton = new THREE.Skeleton(putBones);
                 mesh.add(putBones[0]);
                 mesh.bind(skeleton);
@@ -967,21 +969,20 @@ class XFileLoader {
 
             }
             else {
-                mesh = new THREE.Mesh(LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry, new THREE.MeshFaceMaterial(LoadingXdata.FrameInfo_Raw[nowFrameName].Materials));
+                mesh = new THREE.Mesh(this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry, new THREE.MultiMaterial(this.LoadingXdata.FrameInfo_Raw[nowFrameName].Materials));
             }
             mesh.name = nowFrameName;
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Mesh = mesh;
-            LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry = null;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Mesh = mesh;
+            this.LoadingXdata.FrameInfo_Raw[nowFrameName].Geometry = null;
         }
     }
 
     //ガチ最終・アニメーションを独自形式→Three.jsの標準に変換する
     animationFinalize() {
-        if (this.LoadingXdata.AnimationSetInfo.length > 0) {
+        this.animeKeyNames = Object.keys(this.LoadingXdata.AnimationSetInfo);
+        if (this.animeKeyNames != null && this.animeKeyNames.length > 0) {
             this.nowReaded = 0;
             this.LoadingXdata.XAnimationObj = [];
-            this.animeKeyNames = Object.keys(this.LoadingXdata.AnimationSetInfo);
-
             this.animationFinalize_step();
         } else {
             this.finalproc();
@@ -994,10 +995,10 @@ class XFileLoader {
         this.LoadingXdata.XAnimationObj[i] = new XAnimationObj();
         this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
         this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
-        this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], LoadingXdata.FrameInfo_Raw[this.animeKeyNames[i]]);
+        this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
 
         this.nowReaded++;
-        if (this.nowReaded >= this.LoadingXdata.AnimationSetInfo.lengt) {
+        if (this.nowReaded >=  this.animeKeyNames.length) {
             this.finalproc();
         } else {
             this.animationFinalize_step();

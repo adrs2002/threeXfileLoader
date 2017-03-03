@@ -9,17 +9,18 @@ export default class XAnimationObj {
         this.hierarchy = new Array();
     }
 
-    make(XAnimationInfoArray, _xdata){
-        for(let i=0;i <XAnimationInfoArray.length;i++){
-            this.hierarchy[i] = makeBonekeys(XAnimationInfoArray[i], _xdata);          
+    make(XAnimationInfoArray){
+        const keys = Object.keys(XAnimationInfoArray);
+        for(let i=0;i <keys.length;i++){
+            this.hierarchy[keys[i]] = this.makeBonekeys(XAnimationInfoArray[keys[i]]);          
         }
     }
 
-    makeBonekeys(XAnimationInfo, _xdata)
+    makeBonekeys(XAnimationInfo)
     {
-        const refObj = new object();
+        const refObj = new Object();
         refObj.name = XAnimationInfo.BoneName;
-        refObj.parent = this.getParentBoneIndex(refObj.name, _xdata);
+        refObj.parent = XAnimationInfo.parentBoneName;
         return refObj;
     }
     
