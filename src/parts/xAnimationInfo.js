@@ -1,5 +1,5 @@
 
-XAnimationInfo = function () {
+export default XAnimationInfo = function () {
     this.AnimeName = "";
     this.BoneName = "";
     this.TargetBone = null;

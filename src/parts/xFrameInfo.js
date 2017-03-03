@@ -1,6 +1,6 @@
 
 //Xfile内のフレーム構造を再現したクラス構造
-XFrameInfo = function () {
+export default XFrameInfo = function () {
     this.Mesh = null;
     this.Geometry = null;
     this.FrameName = "";

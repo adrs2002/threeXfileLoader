@@ -3,7 +3,6 @@
   "version": "0.7.0",
   "description": "",
   "main": "threeXfileLoader.js",
-  "dependencies": {},
   "devDependencies": {
     "babel-cli": "^6.23.0",
     "babel-core": "^6.23.1",
@@ -23,8 +22,10 @@
     "webpack": "^2.2.1"
   },
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c rollup.config.js",
+    "build2": "babel src -d lib"
   },
   "author": "adrs2002",
-  "license": "ISC"
+  "license": "ISC",
+  "private": true
 }

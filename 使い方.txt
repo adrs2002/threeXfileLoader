@@ -3,3 +3,11 @@ npm install
 npm run build
 
 以上
+
+*なんかエラー出た場合は、
+npm install rollup --global
+
+やってからの、個別ビルド
+rollup src/threeXfileLoader.js
+
+ってやると、エラー教えてくれる

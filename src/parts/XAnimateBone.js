@@ -1,7 +1,7 @@
 
 //ボーンとそれに紐付けられたキーフレーム。
 //ボーン1種類毎に１つ用意される。
-class XAnimateBone {
+export default class XAnimateBone {
     constructor() {
         this.TargetBone = null;
         //複数のAninmationSetが来ることを想定。ここの配列は、AnimationSetで検索されるDictionary型
@@ -43,4 +43,3 @@ class XAnimateBone {
         this.nowFrameValue[_animeName] = boneMxValue;
     }
 }
-export default XAnimateBone;

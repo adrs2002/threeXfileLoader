@@ -1,7 +1,7 @@
-import * as XAnimationInfo from './XAnimationInfo'
-import * as _xdata from './rawXdata'
+// import * as XAnimationInfo from 'XAnimationInfo.js'
+// import * as _xdata from 'rawXdata.js'
 
-class XAnimationObj {
+export default class XAnimationObj {
     constructor() {
         this.fps = 60;
         this.name = 'xanimation';
@@ -38,5 +38,3 @@ class XAnimationObj {
 
     }
 }
-
-export default XAnimationObj;
