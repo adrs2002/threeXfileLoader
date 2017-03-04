@@ -992,13 +992,24 @@ class XFileLoader {
 
     animationFinalize_step() {
         const i = this.nowReaded;
-        this.LoadingXdata.XAnimationObj[i] = new XAnimationObj();
-        this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
-        this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
-        this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
-
+        const keys = Object.keys(this.LoadingXdata.FrameInfo_Raw);
+        //アニメーションセットと関連付けられている「はず」のモデルを探す。
+        let tgtModel = null;
+        for (let m = 0; m < this.LoadingXdata.FrameInfo.length; m++) {
+            const keys2 = Object.keys(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
+            if(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]][keys2[0]].BoneName == this.LoadingXdata.FrameInfo[m].name){
+                tgtModel =  this.LoadingXdata.FrameInfo[m];
+            }
+        }
+        if (tgtModel != null) {
+            this.LoadingXdata.XAnimationObj[i] = new XAnimationObj();
+            this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
+            this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
+            this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
+            tgtModel.geometry.animations = this.LoadingXdata.XAnimationObj[i];
+        } 
         this.nowReaded++;
-        if (this.nowReaded >=  this.animeKeyNames.length) {
+        if (this.nowReaded >= this.animeKeyNames.length) {
             this.finalproc();
         } else {
             this.animationFinalize_step();

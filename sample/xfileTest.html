@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <title>three.js webgl - X-File loader</title>
     <meta charset="utf-8">
@@ -14,6 +15,12 @@
             overflow: hidden;
         }
 
+
+
+
+
+
+
         #info {
             color: #fff;
             position: absolute;
@@ -24,12 +31,19 @@
             display: block;
         }
 
-            #info a, .button {
-                color: #f00;
-                font-weight: bold;
-                text-decoration: underline;
-                cursor: pointer;
-            }
+
+
+
+
+
+
+        #info a,
+        .button {
+            color: #f00;
+            font-weight: bold;
+            text-decoration: underline;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -39,7 +53,8 @@
         フレーム：<input type="range" id="frameNum" value="0" min="0" max="200" />
         <input type="button" value="ボーンツリー" onclick="togleTreeVis();">
     </div>
-    <div id="canvase3d"></div>  <!-- 描画領域のためのdiv要素を配置 -->
+    <div id="canvase3d"></div>
+    <!-- 描画領域のためのdiv要素を配置 -->
 
     <div id="dialog_tree" style="width:90%; height:90%;display:block;">
         <ul id="bonetree" class="treeview"></ul>
@@ -56,7 +71,6 @@
     <script src="lib/stats.min.js"></script>
 
     <script>
-
         function togleTreeVis() {
             document.getElementById("dialog_tree").style.display = document.getElementById("dialog_tree").style.display == 'block' ? 'none' : 'block';
         }
@@ -91,7 +105,7 @@
 
         init();
 
-        var animateObj = null;
+        var animates = [];
 
         function init() {
 
@@ -128,19 +142,30 @@
             };
 
             Texloader = new THREE.TextureLoader();
-            var loader = new XFileLoader(manager, Texloader);            
+            var loader = new XFileLoader(manager, Texloader);
 
             //モデルを読み込む
-            //loader.load('content/HF105_Born2.x', function (object) {
             loader.load(['content/SSR06_Born2.x', true, true], function (object) {
                 for (var i = 0; i < object.FrameInfo.length; i++) {
                     Models.push(object.FrameInfo[i]);
                     scene.add(Models[i]);
+
+                    //アニメーションコントローラーをセット＆作成する
+                    if (Models[i] instanceof THREE.SkinnedMesh) {
+
+                        if (Models[i].geometry.animations !== undefined) {
+
+                            Models[i].mixer = new THREE.AnimationMixer(Models[i]);
+                            animates.push(Models[i].mixer);
+
+                            var action = Models[i].mixer.clipAction(Models[i].geometry.animations);
+                            action.play();
+
+                        }
+
+                    }
                 }
 
-                //アニメーションコントローラーをセット＆作成する
-                keys = Object.keys(object.AnimationSetInfo);
-         
                 object = null;
             }, onProgress, onError);
 
@@ -182,14 +207,15 @@
             var dulTime = nowTime - LastDateTime;
             LastDateTime = nowTime;
 
-            if (Models != null && Models.length > 0) {
-        
-                animateObj.update(dulTime);
-
-                if (skeletonHelper != null) { skeletonHelper.update(); }
-
+            if (mixers.length > 0) {
+                for (var i = 0; i < animates.length; i++) {
+                    animates[i].update(dulTime);
+                }
             }
 
+            if (Models != null && Models.length > 0) {
+                if (skeletonHelper != null) { skeletonHelper.update(); }
+            }
 
             stats.update();
             render();
@@ -198,8 +224,8 @@
             //renderer.setFaceCulling(THREE.CullFaceFront, THREE.FrontFaceDirectionCW);
             renderer.render(scene, camera);
         }
-
     </script>
 
 </body>
+
 </html>

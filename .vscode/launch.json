@@ -6,18 +6,22 @@
             "request": "launch",
             "name": "Launch Chrome against localhost",
             // "url": "http://localhost:8080",
+            "url": "http://localhost:11117/sample/xfileTest.html",
+            "webRoot": "${workspaceRoot}",
+            "sourceMaps": true,
+
+            "runtimeArgs" : ["--incognito", " --disable-web-security --user-data-dir"]
+        },
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome against localhost",
+            // "url": "http://localhost:8080",
             "file": "${workspaceRoot}/sample/xfileTest.html",
             "webRoot": "${workspaceRoot}",
             "sourceMaps": true,
 
-            "runtimeArgs" : ["--incognito"]
+            "runtimeArgs" : ["--incognito", " --disable-web-security --user-data-dir"]
         },
-        {
-            "type": "chrome",
-            "request": "attach",
-            "name": "Attach to Chrome",
-            "port": 9222,
-            "webRoot": "${workspaceRoot}"
-        }
     ]
 }

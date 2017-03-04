@@ -81,31 +81,58 @@ var XAnimationObj = function () {
 
     createClass(XAnimationObj, [{
         key: 'make',
-        value: function make(XAnimationInfoArray, _xdata) {
+        value: function make(XAnimationInfoArray, mesh) {
             var keys = Object.keys(XAnimationInfoArray);
             for (var i = 0; i < keys.length; i++) {
-                this.hierarchy[keys[i]] = this.makeBonekeys(XAnimationInfoArray[keys[i]], _xdata);
+                var bone = null;
+                var parent = -1;
+                //まず、割り当てられているボーンを探す
+                for (var m = 0; m < mesh.skeleton.bones.length; m++) {
+                    if (mesh.skeleton.bones[m].name == XAnimationInfoArray[keys[i]].BoneName) {
+                        bone = XAnimationInfoArray[keys[i]].BoneName;
+                        parent = mesh.skeleton.bones[m].parent.name;
+                        break;
+                    }
+                }
+                this.hierarchy[keys[i]] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
+            }
+            //Xfileの仕様で、「ボーンの順番どおりにアニメーションが出てる」との保証がないため、ボーンヒエラルキーは再定義
+            var keys2 = Object.keys(this.hierarchy);
+            for (var _i = 0; _i < keys2.length; _i++) {
+                var parentId = -1;
+                for (var k = 0; k < keys2.length; k++) {
+                    if (k === _i) {
+                        return;
+                    }
+                    if (this.hierarchy[keys2[_i]].parent == this.hierarchy[keys2[k]].name) {
+                        parentId = k;
+                        break;
+                    }
+                }
+                if (_i > 0 && parentId === -1) {
+                    console.log('NotFoundBone!:' + this.hierarchy[keys2[_i]].name + ' ,  parent =' + this.hierarchy[keys2[_i]].parent);
+                }
+                this.hierarchy[keys2[_i]].parent = parentId;
             }
         }
+
+        //ボーンとキーフレームを再作成する
+
     }, {
         key: 'makeBonekeys',
-        value: function makeBonekeys(XAnimationInfo, _xdata) {
+        value: function makeBonekeys(XAnimationInfo, bone, parent) {
             var refObj = new Object();
-            refObj.name = XAnimationInfo.BoneName;
-            refObj.parent = this.getParentBoneIndex(refObj.name, _xdata);
+            refObj.name = bone;
+            refObj.parent = parent;
+            refObj.keys = new Array();
+            for (var i = 0; i < XAnimationInfo.KeyFrames.length; i++) {
+                var keyframe = new Object();
+                keyframe.time = XAnimationInfo.KeyFrames[i].time * (1.0 / this.fps);
+                keyframe.matrix = XAnimationInfo.KeyFrames[i].matrix;
+                refObj.keys.push(keyframe);
+            }
             return refObj;
         }
-    }, {
-        key: 'makeKeys',
-        value: function makeKeys() {}
-    }, {
-        key: 'getParentName',
-        value: function getParentName() {
-            _FrameInfo_Raw;
-        }
-    }, {
-        key: 'getParentBoneIndex',
-        value: function getParentBoneIndex() {}
     }]);
     return XAnimationObj;
 }();
@@ -1298,12 +1325,22 @@ var XFileLoader = function () {
         key: 'animationFinalize_step',
         value: function animationFinalize_step() {
             var i = this.nowReaded;
-            this.LoadingXdata.XAnimationObj[i] = new XAnimationObj();
-            this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
-            this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
-            this.LoadingXdata.XAnimationObj[i].boneName = this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]].BoneName;
-            this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], this.LoadingXdata.FrameInfo_Raw[this.LoadingXdata.XAnimationObj[i].boneName]);
-
+            var keys = Object.keys(this.LoadingXdata.FrameInfo_Raw);
+            //アニメーションセットと関連付けられている「はず」のモデルを探す。
+            var tgtModel = null;
+            for (var m = 0; m < this.LoadingXdata.FrameInfo.length; m++) {
+                var keys2 = Object.keys(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
+                if (this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]][keys2[0]].BoneName == this.LoadingXdata.FrameInfo[m].name) {
+                    tgtModel = this.LoadingXdata.FrameInfo[m];
+                }
+            }
+            if (tgtModel != null) {
+                this.LoadingXdata.XAnimationObj[i] = new XAnimationObj();
+                this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
+                this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
+                this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
+                tgtModel.geometry.animations = this.LoadingXdata.XAnimationObj[i];
+            }
             this.nowReaded++;
             if (this.nowReaded >= this.animeKeyNames.length) {
                 this.finalproc();
