@@ -73,10 +73,10 @@ var XAnimationObj = function () {
     function XAnimationObj() {
         classCallCheck(this, XAnimationObj);
 
-        this.fps = 60;
+        this.fps = 30;
         this.name = 'xanimation';
         this.length = 0;
-        this.hierarchy = new Array();
+        this.hierarchy = [];
     }
 
     createClass(XAnimationObj, [{
@@ -94,7 +94,7 @@ var XAnimationObj = function () {
                         break;
                     }
                 }
-                this.hierarchy[keys[i]] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
+                this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent));
             }
             //Xfileの仕様で、「ボーンの順番どおりにアニメーションが出てる」との保証がないため、ボーンヒエラルキーは再定義
             var keys2 = Object.keys(this.hierarchy);
@@ -129,6 +129,10 @@ var XAnimationObj = function () {
                 var keyframe = new Object();
                 keyframe.time = XAnimationInfo.KeyFrames[i].time * (1.0 / this.fps);
                 keyframe.matrix = XAnimationInfo.KeyFrames[i].matrix;
+                // matrixを再分解。めんどくさっ
+                keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
+                keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
+                keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
                 refObj.keys.push(keyframe);
             }
             return refObj;
@@ -1141,7 +1145,7 @@ var XFileLoader = function () {
                     break;
                 //case 3: this.KeyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
                 case 4:
-                    this.ParseMatrixData(this.KeyInfo.matrix, data);
+                    this.ParseMatrixData(this.KeyInfo.matrix, data2);
                     break;
             }
 
@@ -1339,7 +1343,7 @@ var XFileLoader = function () {
                 this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
                 this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
                 this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
-                tgtModel.geometry.animations = this.LoadingXdata.XAnimationObj[i];
+                tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i], tgtModel.skeleton.bones);
             }
             this.nowReaded++;
             if (this.nowReaded >= this.animeKeyNames.length) {

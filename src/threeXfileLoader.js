@@ -812,7 +812,7 @@ class XFileLoader {
                 break;
             //case 3: this.KeyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
             case 4:
-                this.ParseMatrixData(this.KeyInfo.matrix, data);
+                this.ParseMatrixData(this.KeyInfo.matrix, data2);
                 break;
         }
 
@@ -1006,7 +1006,8 @@ class XFileLoader {
             this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
             this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
             this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
-            tgtModel.geometry.animations = this.LoadingXdata.XAnimationObj[i];
+            tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i],tgtModel.skeleton.bones);
+            
         } 
         this.nowReaded++;
         if (this.nowReaded >= this.animeKeyNames.length) {

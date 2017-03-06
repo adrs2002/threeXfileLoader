@@ -3,10 +3,10 @@
 
 export default class XAnimationObj {
     constructor() {
-        this.fps = 60;
+        this.fps = 30;
         this.name = 'xanimation';
         this.length = 0;
-        this.hierarchy = new Array();
+        this.hierarchy = [];
     }
 
     make(XAnimationInfoArray, mesh) {
@@ -22,7 +22,7 @@ export default class XAnimationObj {
                     break;
                 }
             }
-            this.hierarchy[keys[i]] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
+            this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent));
         }
         //Xfileの仕様で、「ボーンの順番どおりにアニメーションが出てる」との保証がないため、ボーンヒエラルキーは再定義
         const keys2 = Object.keys(this.hierarchy);
@@ -52,6 +52,10 @@ export default class XAnimationObj {
             const keyframe = new Object();
             keyframe.time = XAnimationInfo.KeyFrames[i].time * (1.0 / this.fps);
             keyframe.matrix = XAnimationInfo.KeyFrames[i].matrix;
+            // matrixを再分解。めんどくさっ
+            keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
+            keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
+            keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
             refObj.keys.push(keyframe);
         }
         return refObj;
