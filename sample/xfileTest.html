@@ -60,7 +60,7 @@
 
     <script>
         function togleTreeVis() {
-            document.getElementById("dialog_tree").style.display = document.getElementById("dialog_tree").style.display == 'block' ? 'none' : 'block';
+            // document.getElementById("dialog_tree").style.display = document.getElementById("dialog_tree").style.display == 'block' ? 'none' : 'block';
         }
 
         var StringBuffer = function (string) {
@@ -75,7 +75,7 @@
         var camera, scene, renderer;
         var clock = new THREE.Clock();
         var mixers = [];
-
+        var manager = null;
         var Texloader = null;
 
         var ParentList = null;
@@ -116,7 +116,7 @@
             stats = new Stats();
             container.appendChild(stats.dom);
             // model
-            var manager = new THREE.LoadingManager();
+            manager = new THREE.LoadingManager();
             manager.onProgress = function (item, loaded, total) {
                 console.log(item, loaded, total);
             };
