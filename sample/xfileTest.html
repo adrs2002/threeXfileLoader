@@ -14,13 +14,7 @@
             margin: 0px;
             overflow: hidden;
         }
-
-
-
-
-
-
-
+        
         #info {
             color: #fff;
             position: absolute;
@@ -30,12 +24,6 @@
             z-index: 100;
             display: block;
         }
-
-
-
-
-
-
 
         #info a,
         .button {
@@ -152,7 +140,8 @@
 
                     //アニメーションコントローラーをセット＆作成する
                     if (Models[i] instanceof THREE.SkinnedMesh) {
-
+                        skeletonHelper = new THREE.SkeletonHelper(Models[i]);
+                        scene.add( skeletonHelper );
                         if (Models[i].geometry.animations !== undefined) {
 
                             Models[i].mixer = new THREE.AnimationMixer(Models[i]);
@@ -160,7 +149,6 @@
 
                             var action = Models[i].mixer.clipAction(Models[i].geometry.animations);
                             action.play();
-
                         }
 
                     }
@@ -169,17 +157,17 @@
                 object = null;
             }, onProgress, onError);
 
+            // ↓アニメーションとは関係ない、three.jsお約束的コード
             renderer = new THREE.WebGLRenderer();
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setClearColor(0x666666);
             container.appendChild(renderer.domElement);
-            // controls, camera
+
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.target.set(0, 12, 0);
             camera.position.set(2, 18, 28);
             camera.up.set(0, 1, 0);
-            ///////////
 
             var light = new THREE.DirectionalLight(0xeeeeff, 2);
             light.position.set(10, 100, 1).normalize();
@@ -207,14 +195,15 @@
             var dulTime = nowTime - LastDateTime;
             LastDateTime = nowTime;
 
-            if (mixers.length > 0) {
+            if (animates != null && animates.length > 0 ) {
                 for (var i = 0; i < animates.length; i++) {
                     animates[i].update(dulTime);
                 }
             }
 
-            if (Models != null && Models.length > 0) {
+            if (Models != null && Models.length > 0)  {
                 if (skeletonHelper != null) { skeletonHelper.update(); }
+            
             }
 
             stats.update();

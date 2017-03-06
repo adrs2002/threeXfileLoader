@@ -83,37 +83,53 @@ var XAnimationObj = function () {
         key: 'make',
         value: function make(XAnimationInfoArray, mesh) {
             var keys = Object.keys(XAnimationInfoArray);
+            this.hierarchy_tmp = [];
             for (var i = 0; i < keys.length; i++) {
                 var bone = null;
                 var parent = -1;
+                var baseIndex = -1;
                 //まず、割り当てられているボーンを探す
                 for (var m = 0; m < mesh.skeleton.bones.length; m++) {
                     if (mesh.skeleton.bones[m].name == XAnimationInfoArray[keys[i]].BoneName) {
                         bone = XAnimationInfoArray[keys[i]].BoneName;
                         parent = mesh.skeleton.bones[m].parent.name;
+                        baseIndex = m;
                         break;
                     }
                 }
-                this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent));
+                this.hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
             }
             //Xfileの仕様で、「ボーンの順番どおりにアニメーションが出てる」との保証がないため、ボーンヒエラルキーは再定義
-            var keys2 = Object.keys(this.hierarchy);
+            var keys2 = Object.keys(this.hierarchy_tmp);
             for (var _i = 0; _i < keys2.length; _i++) {
+                this.hierarchy.push(this.hierarchy_tmp[_i]);
+                //こんどは、自分より先に「親」がいるはず。
                 var parentId = -1;
-                for (var k = 0; k < keys2.length; k++) {
-                    if (k === _i) {
-                        return;
+                for (var _m = 0; _m < this.hierarchy.length; _m++) {
+                    if (_i != _m && this.hierarchy[_i].parent === this.hierarchy[_m].name) {
+                        parentId = _m;
+                        break;
                     }
-                    if (this.hierarchy[keys2[_i]].parent == this.hierarchy[keys2[k]].name) {
+                }
+                this.hierarchy[_i].parent = parentId;
+            }
+
+            /*
+            for (let i = 0; i < keys2.length; i++) {
+                let parentId = -1;
+                for (let k = 0; k < keys2.length; k++) {
+                    if (k === i) { return; }
+                    if (this.hierarchy_tmp[keys2[i]].parent == this.hierarchy_tmp[keys2[k]].name) {
                         parentId = k;
                         break;
                     }
                 }
-                if (_i > 0 && parentId === -1) {
-                    console.log('NotFoundBone!:' + this.hierarchy[keys2[_i]].name + ' ,  parent =' + this.hierarchy[keys2[_i]].parent);
+                if (i > 0 && parentId === -1) {
+                    console.log('NotFoundBone!:' + this.hierarchy[keys2[i]].name + ' ,  parent =' + this.hierarchy[keys2[i]].parent);
                 }
-                this.hierarchy[keys2[_i]].parent = parentId;
+                this.hierarchy[keys2[i]].parent = parentId;
             }
+            */
         }
 
         //ボーンとキーフレームを再作成する
@@ -127,7 +143,7 @@ var XAnimationObj = function () {
             refObj.keys = new Array();
             for (var i = 0; i < XAnimationInfo.KeyFrames.length; i++) {
                 var keyframe = new Object();
-                keyframe.time = XAnimationInfo.KeyFrames[i].time * (1.0 / this.fps);
+                keyframe.time = XAnimationInfo.KeyFrames[i].time * this.fps;
                 keyframe.matrix = XAnimationInfo.KeyFrames[i].matrix;
                 // matrixを再分解。めんどくさっ
                 keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
@@ -457,6 +473,12 @@ var XFileLoader = function () {
             //その後、Three.jsのObject3D型に合わせて再構築する必要がある
             if (line.indexOf("{") > -1) {
                 this.ElementLv++;
+            }
+
+            //AnimTicksPerSecondは上のほうで1行で来る想定。外れたら、知らん！データを直すかフォークして勝手にやってくれ
+            if (line.indexOf("AnimTicksPerSecond") > -1) {
+                var findA = line.indexOf("{");
+                this.LoadingXdata.AnimTicksPerSecond = parseInt(line.substr(findA + 1, line.indexOf(";") - findA + 1), 10);
             }
 
             if (line.indexOf("}") > -1) {
@@ -1079,7 +1101,6 @@ var XFileLoader = function () {
 
             this.nowAnimationSetName = line.substr(13, line.length - 14).trim(); //13ってのは　AnimationSet  の文字数。 14は AnimationSet に末尾の  { を加えて、14
             this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName] = new Array();
-            this.LoadingXdata.AnimTicksPerSecond = 60;
         }
     }, {
         key: 'readAndCreateAnimation',
@@ -1151,7 +1172,7 @@ var XFileLoader = function () {
 
             if (!frameFound) {
                 this.KeyInfo.index = this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].KeyFrames.length;
-                this.KeyInfo.time = 1.0 / this.LoadingXdata.AnimTicksPerSecond * this.KeyInfo.Frame;
+                this.KeyInfo.time = /*1.0 / this.LoadingXdata.AnimTicksPerSecond * */this.KeyInfo.Frame;
                 this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].KeyFrames.push(this.KeyInfo);
             }
 
@@ -1343,6 +1364,7 @@ var XFileLoader = function () {
                 this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
                 this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
                 this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
+
                 tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i], tgtModel.skeleton.bones);
             }
             this.nowReaded++;

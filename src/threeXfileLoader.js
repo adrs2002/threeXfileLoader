@@ -231,6 +231,12 @@ class XFileLoader {
             this.ElementLv++;
         }
 
+        //AnimTicksPerSecondは上のほうで1行で来る想定。外れたら、知らん！データを直すかフォークして勝手にやってくれ
+        if (line.indexOf("AnimTicksPerSecond") > -1) {
+            const findA = line.indexOf("{") ;
+            this.LoadingXdata.AnimTicksPerSecond = parseInt(line.substr(findA + 1, line.indexOf(";") - findA + 1), 10);
+        }
+
         if (line.indexOf("}") > -1) {
             //カッコが終わった時の動作
             if (this.ElementLv < 1 || this.nowFrameName === "") { this.ElementLv = 0; return; }
@@ -747,7 +753,6 @@ class XFileLoader {
 
         this.nowAnimationSetName = line.substr(13, line.length - 14).trim();    //13ってのは　AnimationSet  の文字数。 14は AnimationSet に末尾の  { を加えて、14
         this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName] = new Array();
-        this.LoadingXdata.AnimTicksPerSecond = 60;
     }
 
     readAndCreateAnimation(line) {
@@ -818,7 +823,7 @@ class XFileLoader {
 
         if (!frameFound) {
             this.KeyInfo.index = this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].KeyFrames.length;
-            this.KeyInfo.time = 1.0 / this.LoadingXdata.AnimTicksPerSecond * this.KeyInfo.Frame;
+            this.KeyInfo.time = /*1.0 / this.LoadingXdata.AnimTicksPerSecond * */ this.KeyInfo.Frame;
             this.LoadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].KeyFrames.push(this.KeyInfo);
         }
 
@@ -1006,8 +1011,8 @@ class XFileLoader {
             this.LoadingXdata.XAnimationObj[i].fps = this.LoadingXdata.AnimTicksPerSecond;
             this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
             this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
-            tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i],tgtModel.skeleton.bones);
-            
+
+            tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i],tgtModel.skeleton.bones);            
         } 
         this.nowReaded++;
         if (this.nowReaded >= this.animeKeyNames.length) {
