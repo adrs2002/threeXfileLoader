@@ -214,8 +214,8 @@ var XFrameInfo$1 = XFrameInfo = function XFrameInfo() {
     this.Materials = new Array();
 };
 
-var XKeyFrameInfo = function XKeyFrameInfo() {
-    classCallCheck(this, XKeyFrameInfo);
+var KeyFrameInfo = function KeyFrameInfo() {
+    classCallCheck(this, KeyFrameInfo);
 
     this.index = 0;
     this.Frame = 0;
@@ -226,11 +226,10 @@ var XKeyFrameInfo = function XKeyFrameInfo() {
 // import * as THREE from '../three.js'
 
 /**
- * @author Jey-en  https://github.com/adrs2002
- * 
+ * @author Jey-en 
+ *
  * This loader is load model (and animation) from .X file format. (for old DirectX).
- *  ! this version are load from TEXT format .X only ! not a Binary.
- * 
+ *
  * Support
  *  - mesh
  *  - texture
@@ -239,7 +238,6 @@ var XKeyFrameInfo = function XKeyFrameInfo() {
  *  - skinning
  *
  *  Not Support
- *  - template
  *  - material(ditail)
  *  - morph
  *  - scene
@@ -433,7 +431,7 @@ THREE.XFileLoader = function () {
             var EndFlg = false;
 
             //フリーズ現象を防ぐため、1000行ずつの制御にしている（１行ずつだと遅かった）
-            for (var i = 0; i < 100; i++) {
+            for (var i = 0; i < 100000; i++) {
                 this.LineRead(this.lines[this.endLineCount].trim());
                 this.endLineCount++;
 
@@ -1147,7 +1145,7 @@ THREE.XFileLoader = function () {
             }
 
             if (!frameFound) {
-                this.KeyInfo = new XKeyFrameInfo();
+                this.KeyInfo = new KeyFrameInfo();
                 this.KeyInfo.matrix = new THREE.Matrix4();
                 this.KeyInfo.Frame = nowKeyframe;
             }
@@ -1371,7 +1369,6 @@ THREE.XFileLoader = function () {
             }
             this.nowReaded++;
             if (this.nowReaded >= this.animeKeyNames.length) {
-                this.LoadingXdata.AnimationSetInfo = null;
                 this.finalproc();
             } else {
                 this.animationFinalize_step();

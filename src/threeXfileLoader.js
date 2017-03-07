@@ -7,14 +7,13 @@ import XboneInf from './parts/xBoneInf.js'
 import XAnimationInfo from './parts/xAnimationInfo.js'
 import XAnimationObj from './parts/XAnimationObj.js'
 import XFrameInfo from './parts/XFrameInfo.js'
-import XKeyFrameInfo from './parts/KeyFrameInfo.js'
+import KeyFrameInfo from './parts/KeyFrameInfo.js'
 
 /**
- * @author Jey-en  https://github.com/adrs2002
- * 
+ * @author Jey-en 
+ *
  * This loader is load model (and animation) from .X file format. (for old DirectX).
- *  ! this version are load from TEXT format .X only ! not a Binary.
- * 
+ *
  * Support
  *  - mesh
  *  - texture
@@ -23,7 +22,6 @@ import XKeyFrameInfo from './parts/KeyFrameInfo.js'
  *  - skinning
  *
  *  Not Support
- *  - template
  *  - material(ditail)
  *  - morph
  *  - scene
@@ -199,7 +197,7 @@ class XFileLoader {
         let EndFlg = false;
 
         //フリーズ現象を防ぐため、1000行ずつの制御にしている（１行ずつだと遅かった）
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 100000; i++) {
             this.LineRead(this.lines[this.endLineCount].trim());
             this.endLineCount++;
 
@@ -797,7 +795,7 @@ class XFileLoader {
         }
 
         if (!frameFound) {
-            this.KeyInfo = new XKeyFrameInfo();
+            this.KeyInfo = new KeyFrameInfo();
             this.KeyInfo.matrix = new THREE.Matrix4();
             this.KeyInfo.Frame = nowKeyframe;
         }
@@ -1018,7 +1016,6 @@ class XFileLoader {
         } 
         this.nowReaded++;
         if (this.nowReaded >= this.animeKeyNames.length) {
-            this.LoadingXdata.AnimationSetInfo = null;
             this.finalproc();
         } else {
             this.animationFinalize_step();
