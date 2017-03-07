@@ -12,7 +12,7 @@ import KeyFrameInfo from './parts/KeyFrameInfo.js'
 /**
  * @author Jey-en 
  *
- * This loader loads .X file (for old DirectX) in ASCII Only!!
+ * This loader is load model (and animation) from .X file format. (for old DirectX).
  *
  * Support
  *  - mesh
@@ -171,11 +171,11 @@ class XFileLoader {
     }
 
     /*
-    バイナリデータだった場合の読み込み。現在は未対応
+    バイナリデータだった場合の読み込み。現在は基本的に未対応
     */
     parseBinary(data) {
         //ねげちぶ！
-        return null;
+        return parseASCII(String.fromCharCode.apply(null, data));
     }
 
     parseASCII() {

@@ -130,7 +130,7 @@
             };
 
             Texloader = new THREE.TextureLoader();
-            var loader = new XFileLoader(manager, Texloader);
+            var loader = new THREE.XFileLoader(manager, Texloader);
 
             //モデルを読み込む
             loader.load(['content/SSR06_Born2.x', true, true], function (object) {

@@ -228,7 +228,7 @@ var KeyFrameInfo = function KeyFrameInfo() {
 /**
  * @author Jey-en 
  *
- * This loader loads .X file (for old DirectX) in ASCII Only!!
+ * This loader is load model (and animation) from .X file format. (for old DirectX).
  *
  * Support
  *  - mesh
@@ -243,7 +243,7 @@ var KeyFrameInfo = function KeyFrameInfo() {
  *  - scene
  */
 
-var XFileLoader = function () {
+THREE.XFileLoader = function () {
     // コンストラクタ
     function XFileLoader(manager, Texloader, _zflg) {
         classCallCheck(this, XFileLoader);
@@ -398,14 +398,14 @@ var XFileLoader = function () {
         }
 
         /*
-        バイナリデータだった場合の読み込み。現在は未対応
+        バイナリデータだった場合の読み込み。現在は基本的に未対応
         */
 
     }, {
         key: 'parseBinary',
         value: function parseBinary(data) {
             //ねげちぶ！
-            return null;
+            return parseASCII(String.fromCharCode.apply(null, data));
         }
     }, {
         key: 'parseASCII',
