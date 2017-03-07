@@ -1,11 +1,11 @@
-# threeXfileLoader
+# THREE.XfileLoader
 ====
 # Overview
 X file(directX 3d file) loader for three.js.
 
 ## Demo
 
-please look this[demo][] 
+please look this [demo][] 
 
 [demo]: http://www001.upp.so-net.ne.jp/adrs2002/xfileTest.html      "Demo"
 
@@ -14,7 +14,7 @@ THREE.js
 
 ##how to use　使い方的な。
 
-0. read 2 .js file , 'three.js(three.min.js)', and 'threeXfileLoader.js' your HTML file.
+0. read 2 .js file , 'three.js(three.min.js)', and 'XfileLoader.js' your HTML file.
 
 1.  Declaration  THREE.JS Load Manager, and TextureLoader.  
  like this  
