@@ -1,4 +1,4 @@
-export default class KeyFrameInfo {
+export default class XKeyFrameInfo {
     constructor() {
         this.index = 0;
         this.Frame = 0;
