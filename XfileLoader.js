@@ -1,3 +1,26 @@
+/**
+ * @author Jey-en  https://github.com/adrs2002
+ * 
+ * this loader repo -> https://github.com/adrs2002/threeXfileLoader
+ * 
+ * This loader is load model (and animation) from .X file format. (for old DirectX).
+ *  ! this version are load from TEXT format .X only ! not a Binary.
+ * 
+ * Support
+ *  - mesh
+ *  - texture
+ *  - normal / uv
+ *  - material
+ *  - skinning
+ *
+ *  Not Support
+ *  - template
+ *  - material(ditail)
+ *  - morph
+ *  - scene
+ */
+
+
 //テキスト情報の読み込みモード
 // text file Reading Mode
 var XfileLoadMode$1 = XfileLoadMode = {
@@ -83,7 +106,7 @@ var XAnimationObj = function () {
         key: 'make',
         value: function make(XAnimationInfoArray, mesh) {
             var keys = Object.keys(XAnimationInfoArray);
-            this.hierarchy_tmp = [];
+            var hierarchy_tmp = [];
             for (var i = 0; i < keys.length; i++) {
                 var bone = null;
                 var parent = -1;
@@ -97,12 +120,12 @@ var XAnimationObj = function () {
                         break;
                     }
                 }
-                this.hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
+                hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
             }
             //Xfileの仕様で、「ボーンの順番どおりにアニメーションが出てる」との保証がないため、ボーンヒエラルキーは再定義
-            var keys2 = Object.keys(this.hierarchy_tmp);
+            var keys2 = Object.keys(hierarchy_tmp);
             for (var _i = 0; _i < keys2.length; _i++) {
-                this.hierarchy.push(this.hierarchy_tmp[_i]);
+                this.hierarchy.push(hierarchy_tmp[_i]);
                 //こんどは、自分より先に「親」がいるはず。
                 var parentId = -1;
                 for (var _m = 0; _m < this.hierarchy.length; _m++) {
@@ -113,23 +136,6 @@ var XAnimationObj = function () {
                 }
                 this.hierarchy[_i].parent = parentId;
             }
-
-            /*
-            for (let i = 0; i < keys2.length; i++) {
-                let parentId = -1;
-                for (let k = 0; k < keys2.length; k++) {
-                    if (k === i) { return; }
-                    if (this.hierarchy_tmp[keys2[i]].parent == this.hierarchy_tmp[keys2[k]].name) {
-                        parentId = k;
-                        break;
-                    }
-                }
-                if (i > 0 && parentId === -1) {
-                    console.log('NotFoundBone!:' + this.hierarchy[keys2[i]].name + ' ,  parent =' + this.hierarchy[keys2[i]].parent);
-                }
-                this.hierarchy[keys2[i]].parent = parentId;
-            }
-            */
         }
 
         //ボーンとキーフレームを再作成する
@@ -145,7 +151,7 @@ var XAnimationObj = function () {
                 var keyframe = new Object();
                 keyframe.time = XAnimationInfo.KeyFrames[i].time * this.fps;
                 keyframe.matrix = XAnimationInfo.KeyFrames[i].matrix;
-                // matrixを再分解。めんどくさっ
+                // matrixを再分解。
                 keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
                 keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
                 keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
@@ -222,28 +228,6 @@ var XKeyFrameInfo = function XKeyFrameInfo() {
     this.time = 0.0;
     this.matrix = null;
 };
-
-// import * as THREE from '../three.js'
-
-/**
- * @author Jey-en  https://github.com/adrs2002
- * 
- * This loader is load model (and animation) from .X file format. (for old DirectX).
- *  ! this version are load from TEXT format .X only ! not a Binary.
- * 
- * Support
- *  - mesh
- *  - texture
- *  - normal / uv
- *  - material
- *  - skinning
- *
- *  Not Support
- *  - template
- *  - material(ditail)
- *  - morph
- *  - scene
- */
 
 THREE.XFileLoader = function () {
     // コンストラクタ
@@ -432,7 +416,7 @@ THREE.XFileLoader = function () {
 
             var EndFlg = false;
 
-            //フリーズ現象を防ぐため、1000行ずつの制御にしている（１行ずつだと遅かった）
+            //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
             for (var i = 0; i < 100; i++) {
                 this.LineRead(this.lines[this.endLineCount].trim());
                 this.endLineCount++;
@@ -442,7 +426,7 @@ THREE.XFileLoader = function () {
                     this.readFinalize();
                     setTimeout(function () {
                         _this2.animationFinalize();
-                    }, 0);
+                    }, 1);
                     //this.onLoad(this.LoadingXdata);
                     break;
                 }
@@ -451,7 +435,7 @@ THREE.XFileLoader = function () {
             if (!EndFlg) {
                 setTimeout(function () {
                     _this2.mainloop();
-                }, 0);
+                }, 1);
             }
         }
 
@@ -1367,7 +1351,7 @@ THREE.XFileLoader = function () {
                 this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
                 this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
 
-                tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i], tgtModel.skeleton.bones);
+                // tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i],tgtModel.skeleton.bones);            
             }
             this.nowReaded++;
             if (this.nowReaded >= this.animeKeyNames.length) {
@@ -1384,7 +1368,7 @@ THREE.XFileLoader = function () {
 
             setTimeout(function () {
                 _this3.onLoad(_this3.LoadingXdata);
-            }, 0);
+            }, 1);
         }
     }]);
     return XFileLoader;

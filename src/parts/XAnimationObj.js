@@ -11,7 +11,7 @@ export default class XAnimationObj {
 
     make(XAnimationInfoArray, mesh) {
         const keys = Object.keys(XAnimationInfoArray);
-        this.hierarchy_tmp = [];
+        const hierarchy_tmp = [];
         for (let i = 0; i < keys.length; i++) {
             let bone = null;
             let parent = -1;
@@ -25,12 +25,12 @@ export default class XAnimationObj {
                     break;
                 }
             }
-            this.hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
+            hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
         }
         //Xfileの仕様で、「ボーンの順番どおりにアニメーションが出てる」との保証がないため、ボーンヒエラルキーは再定義
-        const keys2 = Object.keys(this.hierarchy_tmp);
+        const keys2 = Object.keys(hierarchy_tmp);
         for (let i = 0; i < keys2.length; i++) {
-            this.hierarchy.push(this.hierarchy_tmp[i]);
+            this.hierarchy.push(hierarchy_tmp[i]);
             //こんどは、自分より先に「親」がいるはず。
             let parentId = -1;
             for (let m = 0; m < this.hierarchy.length; m++) {
@@ -41,23 +41,6 @@ export default class XAnimationObj {
             }
             this.hierarchy[i].parent = parentId;
         }
-
-        /*
-        for (let i = 0; i < keys2.length; i++) {
-            let parentId = -1;
-            for (let k = 0; k < keys2.length; k++) {
-                if (k === i) { return; }
-                if (this.hierarchy_tmp[keys2[i]].parent == this.hierarchy_tmp[keys2[k]].name) {
-                    parentId = k;
-                    break;
-                }
-            }
-            if (i > 0 && parentId === -1) {
-                console.log('NotFoundBone!:' + this.hierarchy[keys2[i]].name + ' ,  parent =' + this.hierarchy[keys2[i]].parent);
-            }
-            this.hierarchy[keys2[i]].parent = parentId;
-        }
-        */
     }
 
     //ボーンとキーフレームを再作成する
@@ -70,7 +53,7 @@ export default class XAnimationObj {
             const keyframe = new Object();
             keyframe.time = XAnimationInfo.KeyFrames[i].time * this.fps;
             keyframe.matrix = XAnimationInfo.KeyFrames[i].matrix;
-            // matrixを再分解。めんどくさっ
+            // matrixを再分解。
             keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
             keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
             keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);

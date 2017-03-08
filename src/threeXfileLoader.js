@@ -12,6 +12,8 @@ import XKeyFrameInfo from './parts/KeyFrameInfo.js'
 /**
  * @author Jey-en  https://github.com/adrs2002
  * 
+ * this loader repo -> https://github.com/adrs2002/threeXfileLoader
+ * 
  * This loader is load model (and animation) from .X file format. (for old DirectX).
  *  ! this version are load from TEXT format .X only ! not a Binary.
  * 
@@ -198,7 +200,7 @@ class XFileLoader {
     mainloop() {
         let EndFlg = false;
 
-        //フリーズ現象を防ぐため、1000行ずつの制御にしている（１行ずつだと遅かった）
+        //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
         for (let i = 0; i < 100; i++) {
             this.LineRead(this.lines[this.endLineCount].trim());
             this.endLineCount++;
@@ -206,13 +208,13 @@ class XFileLoader {
             if (this.endLineCount >= this.lines.length - 1) {
                 EndFlg = true;
                 this.readFinalize();
-                setTimeout(() => { this.animationFinalize() }, 0);
+                setTimeout(() => { this.animationFinalize() }, 1);
                 //this.onLoad(this.LoadingXdata);
                 break;
             }
         }
 
-        if (!EndFlg) { setTimeout(() => { this.mainloop() }, 0); }
+        if (!EndFlg) { setTimeout(() => { this.mainloop() }, 1); }
 
     }
 
@@ -1014,7 +1016,7 @@ class XFileLoader {
             this.LoadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
             this.LoadingXdata.XAnimationObj[i].make(this.LoadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
 
-            tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i],tgtModel.skeleton.bones);            
+            // tgtModel.geometry.animations = THREE.AnimationClip.parseAnimation(this.LoadingXdata.XAnimationObj[i],tgtModel.skeleton.bones);            
         } 
         this.nowReaded++;
         if (this.nowReaded >= this.animeKeyNames.length) {
@@ -1026,6 +1028,6 @@ class XFileLoader {
     }
 
     finalproc() {
-        setTimeout(() => { this.onLoad(this.LoadingXdata) }, 0);
+        setTimeout(() => { this.onLoad(this.LoadingXdata) }, 1);
     }
 };
