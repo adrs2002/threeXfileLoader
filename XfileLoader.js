@@ -1,3 +1,4 @@
+
 /**
  * @author Jey-en  https://github.com/adrs2002
  * 
@@ -228,6 +229,8 @@ var XKeyFrameInfo = function XKeyFrameInfo() {
     this.time = 0.0;
     this.matrix = null;
 };
+
+// import * as THREE from '../three.js'
 
 THREE.XFileLoader = function () {
     // コンストラクタ
@@ -874,7 +877,7 @@ THREE.XFileLoader = function () {
         value: function readUv(line) {
             var data = line.split(";");
             //これは宣言された頂点の順に入っていく
-            if (XfileLoader_IsUvYReverse) {
+            if (THREE.XFileLoader.IsUvYReverse) {
                 this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
             } else {
                 this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
@@ -1373,3 +1376,7 @@ THREE.XFileLoader = function () {
     }]);
     return XFileLoader;
 }();
+
+
+
+THREE.XFileLoader.IsUvYReverse = true;

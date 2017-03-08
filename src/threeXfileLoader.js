@@ -31,7 +31,6 @@ import XKeyFrameInfo from './parts/KeyFrameInfo.js'
  *  - scene
  */
 
-
 class XFileLoader {
     // コンストラクタ
     constructor(manager, Texloader, _zflg) {
@@ -567,7 +566,7 @@ class XFileLoader {
     readUv(line) {
         const data = line.split(";");
         //これは宣言された頂点の順に入っていく
-        if (XfileLoader_IsUvYReverse) {
+        if (THREE.XFileLoader.IsUvYReverse) {
             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
         } else {
             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
@@ -1031,3 +1030,5 @@ class XFileLoader {
         setTimeout(() => { this.onLoad(this.LoadingXdata) }, 1);
     }
 };
+
+THREE.XFileLoader.IsUvYReverse = true;
