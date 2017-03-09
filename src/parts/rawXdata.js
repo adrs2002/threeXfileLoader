@@ -2,17 +2,20 @@
 import * as XAnimationObj from './XAnimationObj'
 
 export default class Xdata {
+
     constructor() {
         //XFrameInfo Array(final output)
-        this.FrameInfo = new Array();
+        this.FrameInfo = [];
 
         //XFrameInfo Array
-        this.FrameInfo_Raw = new Array();
+        this.FrameInfo_Raw = [];
 
-        this.AnimationSetInfo = new Array();
+        this.AnimationSetInfo = [];
 
         this.AnimTicksPerSecond = 60;
         
         this.XAnimationObj = null;
+
     }
+    
 };

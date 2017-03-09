@@ -1,7 +1,7 @@
 
-//テキスト情報の読み込みモード
 // text file Reading Mode
 export default XfileLoadMode = {
+
     none: -1,
     Element: 1,
     FrameTransformMatrix_Read: 3,
@@ -40,5 +40,6 @@ export default XfileLoadMode = {
     Anim_Reading: 1002,
     Anim_KeyValueTypeRead: 1003,
     Anim_KeyValueLength: 1004,
-    Anime_ReadKeyFrame: 1005,
+    Anime_ReadKeyFrame: 1005
+    
 };
