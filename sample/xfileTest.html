@@ -45,7 +45,7 @@
     <script src="../three.js"></script>
     <script src="lib/OrbitControls.js"></script>
 
-    <script src="../XfileLoader.js"></script>
+    <script src="../XLoader.js"></script>
 
     <script src="lib/Detector.js"></script>
     <script src="lib/stats.min.js"></script>
@@ -88,13 +88,11 @@
 
         function init() {
 
-            XfileLoader_IsUvYReverse = true;
+            THREE.XLoader.IsUvYReverse = true;
 
             LastDateTime = Date.now();
 
-            XfileLoader_IsPosZReverse = true;
-
-            container = document.createElement('canvase3d');
+            container = document.createElement('div');
             document.body.appendChild(container);
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
             scene = new THREE.Scene();
@@ -121,7 +119,7 @@
             };
 
             Texloader = new THREE.TextureLoader();
-            var loader = new THREE.XFileLoader(manager, Texloader);
+            var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
             loader.load(['content/SSR06_Born2.x', true, true], function (object) {

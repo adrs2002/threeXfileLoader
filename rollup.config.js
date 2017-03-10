@@ -5,7 +5,7 @@ import babel from 'rollup-plugin-babel'
 
 export default {
   entry: 'src/threeXfileLoader.js',
-  dest: 'XfileLoader.js',
+  dest: 'XLoader.js',
   plugins: [
         nodeResolve({ jsnext: true }), // npmモジュールを`node_modules`から読み込む
           cleanup({

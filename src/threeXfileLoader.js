@@ -4,7 +4,7 @@
 /**
  * @author Jey-en  https://github.com/adrs2002
  * 
- * this loader repo -> https://github.com/adrs2002/threeXfileLoader
+ * this loader repo -> https://github.com/adrs2002/threeXLoader
  * 
  * This loader is load model (and animation) from .X file format. (for old DirectX).
  *  ! this version are load from TEXT format .X only ! not a Binary.
@@ -32,14 +32,14 @@ import XAnimationObj from './parts/XAnimationObj.js'
 import XFrameInfo from './parts/XFrameInfo.js'
 import XKeyFrameInfo from './parts/KeyFrameInfo.js'
 
-class XFileLoader {
+class XLoader {
     // コンストラクタ
     constructor(manager, Texloader, _zflg) {
 
-        this.manager = (manager !== undefined) ? manager : THREE.DefaultLoadingManager;
-        this.Texloader = (Texloader !== undefined) ? Texloader : THREE.TextureLoader;
+        this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
+        this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
         this.zflg = (_zflg === undefined) ? false : _zflg;
-        this.skinFlg = false;
+
         this.url = "";
         this.baseDir = "";
         // XfileLoadMode = XfileLoadMode;
@@ -106,13 +106,12 @@ class XFileLoader {
             switch (i) {
                 case 0: this.url = _arg[i]; break;
                 case 1: this.zflg = _arg[i]; break;
-                case 2: this.skinFlg = _arg[i]; break;
             }
         }
 
-        loader.load(this.url, (text) => {
+        loader.load(this.url, (response) => {
 
-            this.parse(text, onLoad);
+            this.parse(response, onLoad);
 
         }, onProgress, onError);
 
@@ -676,7 +675,7 @@ class XFileLoader {
 
         const data = line.split(";");
         //これは宣言された頂点の順に入っていく
-        if (THREE.XFileLoader.IsUvYReverse) {
+        if (THREE.XLoader.IsUvYReverse) {
 
             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
 
@@ -1128,6 +1127,8 @@ class XFileLoader {
             }
 
             let mesh = null;
+            const bufferGeometry = new THREE.BufferGeometry();
+
             if (putBones.length > 0) {
 
                 if (this.loadingXdata.FrameInfo_Raw[putBones[0].name].children.length === 0 && nowFrameName != putBones[0].name) {
@@ -1191,17 +1192,15 @@ class XFileLoader {
 
                 }
 
-                mesh = new THREE.SkinnedMesh(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry, new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
+                mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
                 const skeleton = new THREE.Skeleton(putBones);
                 mesh.add(putBones[0]);
                 mesh.bind(skeleton);
 
-                mesh.SketetonBase = putBones;
-
             }
             else {
 
-                mesh = new THREE.Mesh(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry, new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
+                mesh = new THREE.Mesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
 
             }
 
@@ -1280,4 +1279,4 @@ class XFileLoader {
 
 };
 
-THREE.XFileLoader.IsUvYReverse = true;
+THREE.XLoader.IsUvYReverse = true;

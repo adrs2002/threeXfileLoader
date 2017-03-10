@@ -15,7 +15,7 @@
     // 例えばキャッシュディレクトリを追加すると、検索で余計なファイルが出てこなくて便利
     "**/tmp/cache": true,
      "node_modules": true,
-    "XfileLoader.js": true,
+    "XLoader.js": true,
     "**/sample/**": true
   }
 }
