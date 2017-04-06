@@ -1,26 +1,3 @@
-
-/**
- * @author Jey-en  https://github.com/adrs2002
- * 
- * this loader repo -> https://github.com/adrs2002/threeXLoader
- * 
- * This loader is load model (and animation) from .X file format. (for old DirectX).
- *  ! this version are load from TEXT format .X only ! not a Binary.
- * 
- * Support
- *  - mesh
- *  - texture
- *  - normal / uv
- *  - material
- *  - skinning
- *
- *  Not Support
- *  - template
- *  - material(ditail)
- *  - morph
- *  - scene
- */
-
 var XfileLoadMode$1 = XfileLoadMode = {
     none: -1,
     Element: 1,
@@ -202,7 +179,7 @@ THREE.XLoader = function () {
     function XLoader(manager, Texloader, _zflg) {
         classCallCheck(this, XLoader);
 
-        this.manager = manager !== undefined ? manager : new THREE.LoadingManager();
+        this.manager = manager !== undefined ? manager : new THREE.DefaultLoadingManager();
         this.Texloader = Texloader !== undefined ? Texloader : new THREE.TextureLoader();
         this.zflg = _zflg === undefined ? false : _zflg;
         this.url = "";
@@ -319,7 +296,8 @@ THREE.XLoader = function () {
                 this.baseDir = this.url.substr(0, this.url.lastIndexOf("/") + 1);
             }
             this.loadingXdata = new Xdata();
-            this.lines = this.data.split("\n");
+            this.lines = this.data;
+            this.readedLength = 0;
             this.mainloop();
         }
     }, {
@@ -328,15 +306,18 @@ THREE.XLoader = function () {
             var _this2 = this;
 
             var EndFlg = false;
-            for (var i = 0; i < 100; i++) {
-                this.lineRead(this.lines[this.endLineCount].trim());
+            for (var i = 0; i < 10; i++) {
+                var forceBreak = this.SectionRead();
                 this.endLineCount++;
-                if (this.endLineCount >= this.lines.length - 1) {
+                if (this.readedLength >= this.data.length) {
                     EndFlg = true;
                     this.readFinalize();
                     setTimeout(function () {
                         _this2.animationFinalize();
                     }, 1);
+                    break;
+                }
+                if (forceBreak) {
                     break;
                 }
             }
@@ -347,20 +328,126 @@ THREE.XLoader = function () {
             }
         }
     }, {
-        key: 'lineRead',
-        value: function lineRead(line) {
+        key: 'getNextSection',
+        value: function getNextSection(_offset, _start, _end) {
+            var find = this.data.indexOf("{", _offset);
+            return [this.data.substr(_offset, _start - _offset).trim(), this.data.substr(_start + 1, _end - _start - 1)];
+        }
+    }, {
+        key: 'getNextSection2',
+        value: function getNextSection2(_obj, _offset, _start, _end) {
+            var find = _obj.indexOf("{", _offset);
+            return [_obj.substr(_offset, _start - _offset).trim(), _obj.substr(_start + 1, _end - _start - 1)];
+        }
+    }, {
+        key: 'readMeshSection',
+        value: function readMeshSection(_data) {
+            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry = new THREE.Geometry();
+            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials = [];
+            var find = _data.indexOf(";");
+            var find_2semi = _data.indexOf(";;");
+            {
+                var v_data_base = _data.substr(find + 1, find_2semi - find + 2);
+                var v_data = v_data_base.split(";,");
+                for (var i = 0; i < v_data.length; i++) {
+                    this.readVertex(v_data[i]);
+                }
+            }
+            find = _data.indexOf(";", find_2semi + 2);
+            find_2semi = _data.indexOf(";;", find);
+            {
+                var _v_data_base = _data.substr(find + 1, find_2semi - find + 2);
+                var _v_data = _v_data_base.split(";,");
+                for (var _i = 0; _i < _v_data.length; _i++) {
+                    this.readVertexIndex(_v_data[_i]);
+                }
+            }
+            find = _data.indexOf("MeshTextureCoords");
+            if (find > -1) {
+                var find2 = _data.indexOf("{", find + 1);
+                var find3 = _data.indexOf("}", find + 1);
+                var section = this.getNextSection2(_data, find, find2, find3);
+                find = _data.indexOf(";", find_2semi + 2);
+                find_2semi = _data.indexOf(";;", find);
+            }
+        }
+    }, {
+        key: 'readVertexLines',
+        value: function readVertexLines(_data, find, find2, _readFunc) {}
+    }, {
+        key: 'SectionRead',
+        value: function SectionRead() {
+            var find = this.data.indexOf("{", this.readedLength);
+            if (find === -1) {
+                this.readedLength = this.data.length;return;
+            }
+            var line = this.data.substr(this.readedLength, find - this.readedLength);
+            var find2 = this.data.indexOf("{", find + 1);
+            var find3 = this.data.indexOf("}", find + 1);
+            var find4 = this.data.indexOf("}", this.readedLength);
+            if (find4 < find) {
+                if (this.elementLv < 1 || this.nowFrameName === "") {
+                    this.elementLv = 0;
+                } else {
+                    this.endElement();
+                }
+                this.readedLength = find4 + 1;
+                return false;
+            }
+            if (find3 > find2) {
+                if (line.indexOf("Frame ") > -1) {
+                    this.elementLv++;
+                    this.beginFrame(line);
+                } else if (line.indexOf("Mesh ") > -1) {
+                    var section = this.getNextSection(this.readedLength, find, find3);
+                    this.readedLength = find3 + 1;
+                    this.readMeshSection(section[1]);
+                    this.nowReadMode = XfileLoadMode$1.Element;
+                    return true;
+                } else if (line.indexOf("AnimationSet ") > -1) {
+                    this.readandCreateAnimationSet(line);
+                } else if (line.indexOf("Animation ") > -1) {
+                    this.readAndCreateAnimation(line);
+                    find2 = this.data.indexOf("{", find + line.length);
+                    find3 = this.data.indexOf("}", find + line.length);
+                    var _section = this.getNextSection(this.readedLength + line.length, find2, find3);
+                }
+                this.readedLength = find + 1;
+                return false;
+            } else {
+                var _section2 = this.getNextSection(this.readedLength, find, find3);
+                this.readedLength = find3 + 1;
+                if (_section2[0].indexOf("AnimTicksPerSecond") > -1) {
+                    this.loadingXdata.AnimTicksPerSecond = parseInt(_section2[1].substr(0, _section2[1].indexOf(";")), 10);
+                    this.elementLv = 0;
+                    return false;
+                } else if (_section2[0].indexOf("FrameTransformMatrix") > -1) {
+                    var data = _section2[1].split(",");
+                    data[15] = data[15].substr(0, data[15].indexOf(';;'));
+                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
+                    this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, data);
+                    this.nowReadMode = XfileLoadMode$1.Element;
+                    return false;
+                }
+            }
+            return false;
             if (line.indexOf("template ") > -1) {
+                var _find = this.data.indexOf("}", this.readedLength + 1);
+                this.readedLength = _find + 1;
                 return;
             }
+            this.readedLength += find + 1;
             if (line.length === 0) {
                 return;
             }
-            if (line.indexOf("{") > -1) {
-                this.elementLv++;
-            }
+            this.elementLv++;
             if (line.indexOf("AnimTicksPerSecond") > -1) {
-                var findA = line.indexOf("{");
-                this.loadingXdata.AnimTicksPerSecond = parseInt(line.substr(findA + 1, line.indexOf(";") - findA + 1), 10);
+                var findA = this.data.indexOf("}", this.readLength) - this.readLength;
+                var str = this.data.substr(this.readLength, findA).trim();
+                this.loadingXdata.AnimTicksPerSecond = parseInt(str.substr(0, str.indexOf(";")), 10);
+                this.readedLength += findA + 1;
+                this.elementLv = 0;
+                return;
             }
             if (line.indexOf("}") > -1) {
                 if (this.elementLv < 1 || this.nowFrameName === "") {
@@ -378,9 +465,9 @@ THREE.XLoader = function () {
                 return;
             }
             if (this.nowReadMode === XfileLoadMode$1.FrameTransformMatrix_Read) {
-                var data = line.split(",");
+                var _data2 = line.split(",");
                 this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
-                this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, data);
+                this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, _data2);
                 this.nowReadMode = XfileLoadMode$1.Element;
                 return;
             }
@@ -476,12 +563,6 @@ THREE.XLoader = function () {
             if (this.nowReadMode === XfileLoadMode$1.Weit_Read_Matrx) {
                 this.readandSetBoneOffsetMatrixValue(line);return;
             }
-            if (line.indexOf("AnimationSet ") > -1) {
-                this.readandCreateAnimationSet(line);return;
-            }
-            if (line.indexOf("Animation ") > -1 && this.nowReadMode === XfileLoadMode$1.Anim_init) {
-                this.readAndCreateAnimation(line);return;
-            }
             if (line.indexOf("AnimationKey ") > -1) {
                 this.nowReadMode = XfileLoadMode$1.Anim_KeyValueTypeRead;return;
             }
@@ -534,7 +615,8 @@ THREE.XLoader = function () {
         value: function beginFrame(line) {
             this.frameStartLv = this.elementLv;
             this.nowReadMode = XfileLoadMode$1.Element;
-            this.nowFrameName = line.substr(6, line.length - 8);
+            var findindex = line.indexOf("Frame ");
+            this.nowFrameName = line.substr(findindex + 6, line.length - findindex + 1).trim();
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo$1();
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
             if (this.frameHierarchie.length > 0) {
@@ -868,14 +950,6 @@ THREE.XLoader = function () {
             this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName] = new XAnimationInfo$1();
             this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].animeName = this.nowFrameName;
             this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].FrameStartLv = this.frameStartLv;
-            while (true) {
-                this.endLineCount++;
-                line = this.lines[this.endLineCount].trim();
-                if (line.indexOf("{") > -1 && line.indexOf("}") > -1) {
-                    this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].boneName = line.replace(/{/g, "").replace(/}/g, "").trim();
-                    break;
-                }
-            }
         }
     }, {
         key: 'readAnimationKeyFrame',
@@ -938,11 +1012,11 @@ THREE.XLoader = function () {
                 }
             }
             if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
-                for (var _i = 0; _i < this.loadingXdata.FrameInfo.length; _i++) {
-                    if (this.loadingXdata.FrameInfo[_i].parent == null) {
-                        this.loadingXdata.FrameInfo[_i].zflag = this.zflg;
+                for (var _i2 = 0; _i2 < this.loadingXdata.FrameInfo.length; _i2++) {
+                    if (this.loadingXdata.FrameInfo[_i2].parent == null) {
+                        this.loadingXdata.FrameInfo[_i2].zflag = this.zflg;
                         if (this.zflg) {
-                            this.loadingXdata.FrameInfo[_i].scale.set(-1, 1, 1);
+                            this.loadingXdata.FrameInfo[_i2].scale.set(-1, 1, 1);
                         }
                     }
                 }

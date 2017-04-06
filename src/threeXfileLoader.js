@@ -215,7 +215,8 @@ class XLoader {
         this.loadingXdata = new Xdata();
 
         // 返ってきたデータを行ごとに分解
-        this.lines = this.data.split("\n");
+        this.lines = this.data; //.split("\n");
+        this.readedLength = 0;
         this.mainloop();
 
     }
@@ -225,52 +226,181 @@ class XLoader {
         let EndFlg = false;
 
         //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 10; i++) {
 
-            this.lineRead(this.lines[this.endLineCount].trim());
+            const forceBreak = this.SectionRead();
             this.endLineCount++;
 
-            if (this.endLineCount >= this.lines.length - 1) {
+            if (this.readedLength >= this.data.length) {
 
                 EndFlg = true;
                 this.readFinalize();
                 setTimeout(() => { this.animationFinalize() }, 1);
                 //this.onLoad(this.loadingXdata);
                 break;
-
             }
-
+            if (forceBreak) { break; }
         }
 
         if (!EndFlg) { setTimeout(() => { this.mainloop() }, 1); }
 
     }
 
+    getNextSection(_offset, _start, _end) {
+        let find = this.data.indexOf("{", _offset);
+        return [this.data.substr(_offset, _start - _offset).trim(), this.data.substr(_start + 1, _end - _start - 1)];
+    }
 
+    getNextSection2(_obj, _offset, _start, _end) {
+        let find = _obj.indexOf("{", _offset);
+        return [_obj.substr(_offset, _start - _offset).trim(), _obj.substr(_start + 1, _end - _start - 1)];
+    }
+
+    readMeshSection(_data) {
+        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry = new THREE.Geometry();
+        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials = [];
+
+        //まず ; を探し、頂点数を出す。
+        let find = _data.indexOf(";");
+        let find_2semi = _data.indexOf(";;");
+        // this.readVertexLines(_data, find,find_2semi, this.readVertex);
+        {
+            const v_data_base = _data.substr(find + 1, find_2semi - find + 2);
+            const v_data = v_data_base.split(";,");
+            //頂点を作成する
+            for (let i = 0; i < v_data.length; i++) {
+                this.readVertex(v_data[i]);
+            }
+        }
+        //次に面数が来る
+        find = _data.indexOf(";", find_2semi + 2);
+        find_2semi = _data.indexOf(";;", find);
+        //this.readVertexLines(_data, find,find_2semi, this.readVertexIndex);
+        {
+            const v_data_base = _data.substr(find + 1, find_2semi - find + 2);
+            const v_data = v_data_base.split(";,");
+            //頂点を作成する
+            for (let i = 0; i < v_data.length; i++) {
+                this.readVertexIndex(v_data[i]);
+            }
+        }
+        // 次から先は不定。あったりなかったりする
+        find = _data.indexOf("MeshTextureCoords");
+        if (find > -1) {
+            const find2 = _data.indexOf("{", find + 1);
+            const find3 = _data.indexOf("}", find + 1);
+            const section = this.getNextSection2(_data, find, find2, find3);
+            find = _data.indexOf(";", find_2semi + 2);
+            find_2semi = _data.indexOf(";;", find);
+        }
+    }
+
+    readVertexLines(_data, find, find2, _readFunc) {
+
+    }
 
     //Xファイル解析メイン
-    lineRead(line) {
+    SectionRead() {
+
+        // { を探して、そこまでを１セクションとする
+        let find = this.data.indexOf("{", this.readedLength);
+        if (find === -1) { this.readedLength = this.data.length; return; }
+        let line = this.data.substr(this.readedLength, find - this.readedLength);
+
+        // １つ先の { と } も探す
+        let find2 = this.data.indexOf("{", find + 1);
+        let find3 = this.data.indexOf("}", find + 1);
+        let find4 = this.data.indexOf("}", this.readedLength);
+
+        if (find4 < find) {
+            //親子階層が１つ終了
+            if (this.elementLv < 1 || this.nowFrameName === "") { this.elementLv = 0; } else {
+                this.endElement();
+            }
+            this.readedLength = find4 + 1;
+            return false;
+        }
+
+        if (find3 > find2) {
+            // セクションが閉じず、子階層追加扱い
+            if (line.indexOf("Frame ") > -1) {
+                this.elementLv++;
+                //１つのFrame開始
+                this.beginFrame(line);
+            } else if (line.indexOf("Mesh ") > -1) {
+                const section = this.getNextSection(this.readedLength, find, find3);
+                this.readedLength = find3 + 1;
+                this.readMeshSection(section[1]);
+                this.nowReadMode = XfileLoadMode.Element;
+                return true;
+            }
+            else if (line.indexOf("AnimationSet ") > -1) {
+                this.readandCreateAnimationSet(line);
+            }
+            else if (line.indexOf("Animation ") > -1) {
+                this.readAndCreateAnimation(line);
+                //この次に対象ボーンがくるのはどうやら固定
+                find2 = this.data.indexOf("{", find + line.length);
+                find3 = this.data.indexOf("}", find + line.length);
+                const section = this.getNextSection(this.readedLength + line.length, find2, find3);
+                /*  wip
+                while (true) {
+                    this.endLineCount++;
+                    line = this.lines[this.endLineCount].trim();
+                    if (line.indexOf("{") > -1 && line.indexOf("}") > -1) {
+                        this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].boneName = line.replace(/{/g, "").replace(/}/g, "").trim();
+                        break;
+                    }
+                }
+                */
+            }
+            this.readedLength = find + 1;
+            return false;
+        } else {
+            //データが１つの塊であることが確定
+            const section = this.getNextSection(this.readedLength, find, find3);
+            this.readedLength = find3 + 1;
+            if (section[0].indexOf("AnimTicksPerSecond") > -1) {
+                this.loadingXdata.AnimTicksPerSecond = parseInt(section[1].substr(0, section[1].indexOf(";")), 10);
+                this.elementLv = 0;
+                return false;
+            } else if (section[0].indexOf("FrameTransformMatrix") > -1) {
+                const data = section[1].split(",");
+                //最後には ;; が入ってるはずなのでとる
+                data[15] = data[15].substr(0, data[15].indexOf(';;'));
+                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
+                this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, data);
+                this.nowReadMode = XfileLoadMode.Element;
+                return false;
+            }
+        }
+        //ここまでしかやってない
+        return false;
+        ////////////////
 
         //後でちゃんと考えるさ･･
         // template が入っていたら、その行は飛ばす！飛ばさなきゃ読める形が増えるだろうけど、後回し　
-        if (line.indexOf("template ") > -1) { return; }
+        if (line.indexOf("template ") > -1) {
+            let find2 = this.data.indexOf("}", this.readedLength + 1);
+            this.readedLength = find2 + 1;
+            return;
+        }
 
+        this.readedLength += find + 1;
         if (line.length === 0) { return; }
 
         //DirectXは[ Frame ] で中身が構成されているため、Frameのツリー構造を一度再現する。
         //その後、Three.jsのObject3D型に合わせて再構築する必要がある
-        if (line.indexOf("{") > -1) {
-
-            this.elementLv++;
-
-        }
+        this.elementLv++;
 
         //AnimTicksPerSecondは上のほうで1行で来る想定。外れたら、知らん！データを直すかフォークして勝手にやってくれ
         if (line.indexOf("AnimTicksPerSecond") > -1) {
-
-            const findA = line.indexOf("{");
-            this.loadingXdata.AnimTicksPerSecond = parseInt(line.substr(findA + 1, line.indexOf(";") - findA + 1), 10);
-
+            const findA = this.data.indexOf("}", this.readLength) - this.readLength;
+            const str = this.data.substr(this.readLength, findA).trim();
+            this.loadingXdata.AnimTicksPerSecond = parseInt(str.substr(0, str.indexOf(";")), 10);
+            this.readedLength += findA + 1;
+            this.elementLv = 0;
+            return;
         }
 
         if (line.indexOf("}") > -1) {
@@ -400,9 +530,9 @@ class XLoader {
         ////////////////////////////////////////////////////////////
         //ここからは、Frame構造とは切り離して考える必要がある。
         //別ファイルに格納されている可能性も考慮しなくては…
-        if (line.indexOf("AnimationSet ") > -1) { this.readandCreateAnimationSet(line); return; }
 
-        if (line.indexOf("Animation ") > -1 && this.nowReadMode === XfileLoadMode.Anim_init) { this.readAndCreateAnimation(line); return; }
+
+
 
         if (line.indexOf("AnimationKey ") > -1) { this.nowReadMode = XfileLoadMode.Anim_KeyValueTypeRead; return; }
 
@@ -483,8 +613,8 @@ class XLoader {
 
         this.frameStartLv = this.elementLv;
         this.nowReadMode = XfileLoadMode.Element;
-
-        this.nowFrameName = line.substr(6, line.length - 8);
+        const findindex = line.indexOf("Frame ");
+        this.nowFrameName = line.substr(findindex + 6, line.length - findindex + 1).trim();
         this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
         this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
         //親の名前がすぐわかるので、この段階でセット
@@ -928,22 +1058,6 @@ class XLoader {
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName] = new XAnimationInfo();
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].animeName = this.nowFrameName;
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].FrameStartLv = this.frameStartLv;
-        //ここは悪いコード。
-        //次に来る「影響を受けるボーン」は、{  }  が１行で来るという想定･･･かつ、１つしかないという想定。
-        //想定からずれるものがあったらカスタマイズしてくれ･･そのためのオープンソースだ。
-        while (true) {
-
-            this.endLineCount++;
-            line = this.lines[this.endLineCount].trim();
-            if (line.indexOf("{") > -1 && line.indexOf("}") > -1) {
-
-                this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].boneName = line.replace(/{/g, "").replace(/}/g, "").trim();
-                break;
-
-            }
-
-        }
-
     }
 
     readAnimationKeyFrame(line) {
