@@ -17,6 +17,7 @@ var XfileLoadMode$1 = XfileLoadMode = {
     Mat_Face_len_Read: 102,
     Mat_Face_Set: 103,
     Mat_Set: 111,
+    Mat_detail: 121,
     Mat_Set_Texture: 121,
     Mat_Set_LightTex: 122,
     Mat_Set_EmissiveTex: 123,
@@ -296,6 +297,8 @@ THREE.XLoader = function () {
                 this.baseDir = this.url.substr(0, this.url.lastIndexOf("/") + 1);
             }
             this.loadingXdata = new Xdata();
+            this.loadingXdata.vertexNormalFromFile = false;
+            this.loadingXdata.faceNormalFromFile = false;
             this.lines = this.data;
             this.readedLength = 0;
             this.mainloop();
@@ -341,39 +344,126 @@ THREE.XLoader = function () {
         }
     }, {
         key: 'readMeshSection',
-        value: function readMeshSection(_data) {
+        value: function readMeshSection(_baseOffset) {
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry = new THREE.Geometry();
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials = [];
-            var find = _data.indexOf(";");
-            var find_2semi = _data.indexOf(";;");
-            {
-                var v_data_base = _data.substr(find + 1, find_2semi - find + 2);
-                var v_data = v_data_base.split(";,");
-                for (var i = 0; i < v_data.length; i++) {
-                    this.readVertex(v_data[i]);
-                }
+            var find_2semi = this.data.indexOf(";;", _baseOffset);
+            var offset = 0;
+            var v_data = this.getVertextDataSection(this.data.substr(_baseOffset, find_2semi - _baseOffset), 0);
+            for (var i = 0; i < v_data[0].length; i++) {
+                this.readVertex(v_data[0][i]);
             }
-            find = _data.indexOf(";", find_2semi + 2);
-            find_2semi = _data.indexOf(";;", find);
-            {
-                var _v_data_base = _data.substr(find + 1, find_2semi - find + 2);
-                var _v_data = _v_data_base.split(";,");
-                for (var _i = 0; _i < _v_data.length; _i++) {
-                    this.readVertexIndex(_v_data[_i]);
-                }
+            offset = find_2semi + 2;
+            find_2semi = this.data.indexOf(";;", offset);
+            var v_data2 = this.getVertextDataSection(this.data.substr(offset + 1, find_2semi - offset + 1), 0);
+            for (var _i = 0; _i < v_data2[0].length; _i++) {
+                this.readVertexIndex(v_data2[0][_i]);
             }
-            find = _data.indexOf("MeshTextureCoords");
-            if (find > -1) {
-                var find2 = _data.indexOf("{", find + 1);
-                var find3 = _data.indexOf("}", find + 1);
-                var section = this.getNextSection2(_data, find, find2, find3);
-                find = _data.indexOf(";", find_2semi + 2);
-                find_2semi = _data.indexOf(";;", find);
+            this.readedLength = offset + v_data2[1] + 1;
+        }
+    }, {
+        key: 'getVertextDataSection',
+        value: function getVertextDataSection(_data, _offset) {
+            var find = _data.indexOf(";", _offset);
+            var find_2semi = _data.indexOf(";;", _offset);
+            if (find_2semi === -1) {
+                find_2semi = _data.length - 1;
             }
+            var v_data_base = _data.substr(find + 1, find_2semi - find + 2);
+            return [v_data_base.split(";,"), find_2semi + 2];
         }
     }, {
         key: 'readVertexLines',
         value: function readVertexLines(_data, find, find2, _readFunc) {}
+    }, {
+        key: 'readMeshMaterialSet',
+        value: function readMeshMaterialSet(_baseOffset) {
+            var find = this.data.indexOf(";", _baseOffset);
+            find = this.data.indexOf(";", find + 2);
+            find2 = this.data.indexOf(";", find + 2);
+            var _data = this.data.substr(find + 1, find2 - find + 1);
+            var v_data = _data.split(",");
+            for (var i = 0; i < v_data.length; i++) {
+                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[i].materialIndex = parseInt(v_data[i], 10);
+            }
+            this.readedLength = find2 + 1;
+        }
+    }, {
+        key: 'readMaterial',
+        value: function readMaterial(_dataLine) {
+            this.nowMat = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+            if (this.zflg) {
+                this.nowMat.side = THREE.BackSide;
+            } else {
+                this.nowMat.side = THREE.FrontSide;
+            }
+            var find = _dataLine.indexOf(";;");
+            var _diff = _dataLine.substr(0, find).split(";");
+            this.nowMat.color.r = parseFloat(_diff[0]);
+            this.nowMat.color.g = parseFloat(_diff[1]);
+            this.nowMat.color.b = parseFloat(_diff[2]);
+            var find2 = _dataLine.indexOf(";", find + 3);
+            this.nowMat.shininess = parseFloat(_dataLine.substr(find + 2, find2 - find - 2));
+            find = _dataLine.indexOf(";;", find2 + 1);
+            var _specular = _dataLine.substr(find2 + 1, find - find2).split(";");
+            this.nowMat.specular.r = parseFloat(_specular[0]);
+            this.nowMat.specular.g = parseFloat(_specular[1]);
+            this.nowMat.specular.b = parseFloat(_specular[2]);
+            find2 = _dataLine.indexOf(";;", find + 2);
+            var _emissive = _dataLine.substr(find + 2, find2 - find - 2).split(";");
+            this.nowMat.emissive.r = parseFloat(_emissive[0]);
+            this.nowMat.emissive.g = parseFloat(_emissive[1]);
+            this.nowMat.emissive.b = parseFloat(_emissive[2]);
+        }
+    }, {
+        key: 'readSkinWeights',
+        value: function readSkinWeights(_data) {
+            this.BoneInf = new XboneInf();
+            var find = _data.indexOf(";");
+            this.readBoneName(_data.substr(0, find - 1).replace('"', ''));
+            var find_1 = _data.indexOf(";", find + 1) + 1;
+            var matrixStart = 0;
+            if (parseInt(_data.substr(find, find_1 - find), 10) === 0) {
+                matrixStart = find_1 + 1;
+            } else {
+                var _find = _data.indexOf(";", find_1 + 1);
+                var i_data = _data.substr(find_1, _find - find_1).split(",");
+                for (var i = 0; i < i_data.length; i++) {
+                    this.BoneInf.Indeces.push(parseInt(i_data[i], 10));
+                }
+                var find3 = _data.indexOf(";", _find + 1);
+                var w_data = _data.substr(_find + 1, find3 - _find).split(",");
+                for (var _i2 = 0; _i2 < w_data.length; _i2++) {
+                    this.BoneInf.Weights.push(parseFloat(w_data[_i2]));
+                }
+                matrixStart = find3 + 1;
+            }
+            var find4 = _data.indexOf(";;", matrixStart + 1);
+            var m_data = _data.substr(matrixStart, find4 - matrixStart).split(",");
+            this.BoneInf.initMatrix = new THREE.Matrix4();
+            this.ParseMatrixData(this.BoneInf.initMatrix, m_data);
+            this.BoneInf.OffsetMatrix = new THREE.Matrix4();
+            this.BoneInf.OffsetMatrix.getInverse(this.BoneInf.initMatrix);
+            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.push(this.BoneInf);
+        }
+    }, {
+        key: 'getPlaneStr',
+        value: function getPlaneStr(_str) {
+            var firstDbl = _str.indexOf('"') + 1;
+            var dbl2 = _str.indexOf('"', firstDbl);
+            return _str.substr(firstDbl, dbl2 - firstDbl);
+        }
+    }, {
+        key: 'readAnimationKeyFrame',
+        value: function readAnimationKeyFrame(_data) {
+            var find1 = _data.indexOf(';');
+            this.nowAnimationKeyType = parseInt(_data.substr(0, find1), 10);
+            var find2 = _data.indexOf(';', find1 + 1);
+            var lines = _data.substr(find2 + 1).split(';;,');
+            for (var i = 0; i < lines.length; i++) {
+                this.readAnimationKeyFrameValue(lines[i]);
+            }
+        }
     }, {
         key: 'SectionRead',
         value: function SectionRead() {
@@ -381,7 +471,14 @@ THREE.XLoader = function () {
             if (find === -1) {
                 this.readedLength = this.data.length;return;
             }
-            var line = this.data.substr(this.readedLength, find - this.readedLength);
+            var lines = this.data.substr(this.readedLength, find - this.readedLength).split(/\r\n|\r|\n/);
+            var line = lines[0];
+            for (var i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].trim().length > 0 && lines[i].indexOf('//') < 0) {
+                    line = lines[i];
+                    break;
+                }
+            }
             var find2 = this.data.indexOf("{", find + 1);
             var find3 = this.data.indexOf("}", find + 1);
             var find4 = this.data.indexOf("}", this.readedLength);
@@ -395,196 +492,127 @@ THREE.XLoader = function () {
                 return false;
             }
             if (find3 > find2) {
+                this.elementLv++;
                 if (line.indexOf("Frame ") > -1) {
-                    this.elementLv++;
                     this.beginFrame(line);
                 } else if (line.indexOf("Mesh ") > -1) {
-                    var section = this.getNextSection(this.readedLength, find, find3);
-                    this.readedLength = find3 + 1;
-                    this.readMeshSection(section[1]);
-                    this.nowReadMode = XfileLoadMode$1.Element;
+                    this.readMeshSection(find + 1);
+                    this.nowReadMode = XfileLoadMode$1.Mesh;
+                    return true;
+                } else if (line.indexOf("MeshMaterialList ") > -1) {
+                    this.readMeshMaterialSet(find + 1);
+                    this.nowReadMode = XfileLoadMode$1.Mat_Set;
+                    return true;
+                } else if (line.indexOf("Material ") > -1) {
+                    var nextSemic = this.data.indexOf(";;", find + 1);
+                    nextSemic = this.data.indexOf(";;", nextSemic + 1);
+                    nextSemic = this.data.indexOf(";;", nextSemic + 1);
+                    this.readMaterial(this.data.substr(find + 1, nextSemic - find + 1));
+                    this.readedLength = nextSemic + 2;
+                    this.nowReadMode = XfileLoadMode$1.Mat_detail;
                     return true;
                 } else if (line.indexOf("AnimationSet ") > -1) {
                     this.readandCreateAnimationSet(line);
+                    this.nowReadMode = XfileLoadMode$1.Anim_init;
+                    this.readedLength = find + 1;
+                    return false;
                 } else if (line.indexOf("Animation ") > -1) {
                     this.readAndCreateAnimation(line);
-                    find2 = this.data.indexOf("{", find + line.length);
-                    find3 = this.data.indexOf("}", find + line.length);
-                    var _section = this.getNextSection(this.readedLength + line.length, find2, find3);
+                    this.nowReadMode = XfileLoadMode$1.Anim_Reading;
+                    var tgtBoneName = this.data.substr(find2 + 1, find3 - find2 - 1).trim();
+                    this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].boneName = tgtBoneName;
+                    this.readedLength = find3 + 1;
+                    return false;
                 }
                 this.readedLength = find + 1;
                 return false;
             } else {
-                var _section2 = this.getNextSection(this.readedLength, find, find3);
+                var section = this.getNextSection(this.readedLength, find, find3);
                 this.readedLength = find3 + 1;
-                if (_section2[0].indexOf("AnimTicksPerSecond") > -1) {
-                    this.loadingXdata.AnimTicksPerSecond = parseInt(_section2[1].substr(0, _section2[1].indexOf(";")), 10);
+                if (line.indexOf("template ") > -1) {
                     this.elementLv = 0;
                     return false;
-                } else if (_section2[0].indexOf("FrameTransformMatrix") > -1) {
-                    var data = _section2[1].split(",");
+                } else if (line.indexOf("AnimTicksPerSecond") > -1) {
+                    this.loadingXdata.AnimTicksPerSecond = parseInt(section[1].substr(0, section[1].indexOf(";")), 10);
+                    this.elementLv = 0;
+                    return false;
+                } else if (line.indexOf("FrameTransformMatrix") > -1) {
+                    var data = section[1].split(",");
                     data[15] = data[15].substr(0, data[15].indexOf(';;'));
                     this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
                     this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, data);
                     this.nowReadMode = XfileLoadMode$1.Element;
                     return false;
+                } else if (line.indexOf("MeshTextureCoords") > -1) {
+                    var v_data = this.getVertextDataSection(section[1], 0);
+                    for (var _i3 = 0; _i3 < v_data[0].length; _i3++) {
+                        this.readUv(v_data[0][_i3]);
+                    }
+                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0] = [];
+                    for (var m = 0; m < this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.length; m++) {
+                        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m] = [];
+                        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].a]);
+                        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].b]);
+                        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].c]);
+                    }
+                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.uvsNeedUpdate = true;
+                    return true;
+                } else if (line.indexOf("Material ") > -1) {
+                    this.readMaterial(section[1]);
+                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials.push(this.nowMat);
+                    return false;
+                } else if (line.indexOf("TextureFilename") > -1) {
+                    if (section[1].length > 0) {
+                        this.nowMat.map = this.Texloader.load(this.baseDir + this.getPlaneStr(section[1]));
+                    }
+                    return false;
+                } else if (line.indexOf("BumpMapFilename") > -1) {
+                    if (section[1].length > 0) {
+                        this.nowMat.bumpMap = this.Texloader.load(this.baseDir + this.getPlaneStr(section[1]));
+                        this.nowMat.bumpScale = 0.05;
+                    }
+                    return false;
+                } else if (line.indexOf("NormalMapFilename") > -1) {
+                    if (section[1].length > 0) {
+                        this.nowMat.normalMap = this.Texloader.load(this.baseDir + this.getPlaneStr(section[1]));
+                        this.nowMat.normalScale = new THREE.Vector2(2, 2);
+                    }
+                    return false;
+                } else if (line.indexOf("EmissiveMapFilename") > -1) {
+                    if (section[1].length > 0) {
+                        this.nowMat.emissiveMap = this.Texloader.load(this.baseDir + this.getPlaneStr(section[1]));
+                    }
+                    return false;
+                } else if (line.indexOf("LightMapFilename") > -1) {
+                    if (section[1].length > 0) {
+                        this.nowMat.lightMap = this.Texloader.load(this.baseDir + this.getPlaneStr(section[1]));
+                    }
+                    return false;
+                } else if (line.indexOf("XSkinMeshHeader") > -1) {
+                    return false;
+                } else if (line.indexOf("SkinWeights") > -1) {
+                    this.readSkinWeights(section[1]);
+                    return true;
+                } else if (line.indexOf("AnimationKey") > -1) {
+                    this.readAnimationKeyFrame(section[1]);
+                    return true;
                 }
             }
             return false;
-            if (line.indexOf("template ") > -1) {
-                var _find = this.data.indexOf("}", this.readedLength + 1);
-                this.readedLength = _find + 1;
-                return;
-            }
-            this.readedLength += find + 1;
-            if (line.length === 0) {
-                return;
-            }
-            this.elementLv++;
-            if (line.indexOf("AnimTicksPerSecond") > -1) {
-                var findA = this.data.indexOf("}", this.readLength) - this.readLength;
-                var str = this.data.substr(this.readLength, findA).trim();
-                this.loadingXdata.AnimTicksPerSecond = parseInt(str.substr(0, str.indexOf(";")), 10);
-                this.readedLength += findA + 1;
-                this.elementLv = 0;
-                return;
-            }
-            if (line.indexOf("}") > -1) {
-                if (this.elementLv < 1 || this.nowFrameName === "") {
-                    this.elementLv = 0;return;
-                }
-                this.endElement();
-                return;
-            }
-            if (line.indexOf("Frame ") > -1) {
-                this.beginFrame(line);
-                return;
-            }
-            if (line.indexOf("FrameTransformMatrix") > -1) {
-                this.nowReadMode = XfileLoadMode$1.FrameTransformMatrix_Read;
-                return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.FrameTransformMatrix_Read) {
-                var _data2 = line.split(",");
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
-                this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, _data2);
-                this.nowReadMode = XfileLoadMode$1.Element;
-                return;
-            }
-            if (line.indexOf("Mesh ") > -1) {
-                this.beginReadMesh(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Vartex_init) {
-                this.readVertexCount(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Vartex_Read) {
-                if (this.readVertex(line)) {
-                    return;
-                }
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Index_init) {
-                this.readIndexLength(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.index_Read) {
-                if (this.readVertexIndex(line)) {
-                    return;
-                }
-            }
-            if (line.indexOf("MeshNormals ") > -1) {
-                this.beginMeshNormal(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Normal_V_init) {
-                this.readMeshNormalCount(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Normal_V_Read) {
-                if (this.readMeshNormalVertex(line)) {
-                    return;
-                }
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Normal_I_init) {
-                this.readMeshNormalIndexCount(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Normal_I_Read) {
-                if (this.readMeshNormalIndex(line)) {
-                    return;
-                }
-            }
-            if (line.indexOf("MeshTextureCoords ") > -1) {
-                this.nowReadMode = XfileLoadMode$1.Uv_init;return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Uv_init) {
-                this.readUvInit(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Uv_Read) {
-                if (this.readUv(line)) {
-                    return;
-                }
-            }
-            if (line.indexOf("MeshMaterialList ") > -1) {
-                this.nowReadMode = XfileLoadMode$1.Mat_Face_init;
-                return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Mat_Face_init) {
-                this.nowReadMode = XfileLoadMode$1.Mat_Face_len_Read;
-                return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Mat_Face_len_Read) {
-                this.readMatrixSetLength(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Mat_Face_Set) {
-                if (this.readMaterialBind(line)) {
-                    return;
-                }
-            }
-            if (line.indexOf("Material ") > -1) {
-                this.readMaterialInit(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Mat_Set) {
-                this.readandSetMaterial(line);return;
-            }
-            if (this.nowReadMode >= XfileLoadMode$1.Mat_Set_Texture && this.nowReadMode < XfileLoadMode$1.Weit_init) {
-                this.readandSetMaterialTexture(line);return;
-            }
-            if (line.indexOf("SkinWeights ") > -1 && this.nowReadMode >= XfileLoadMode$1.Element) {
-                this.readBoneInit(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Weit_init) {
-                this.readBoneName(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Weit_IndexLength) {
-                this.readBoneVertexLength(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Weit_Read_Index) {
-                this.readandSetBoneVertex(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Weit_Read_Value) {
-                this.readandSetBoneWeightValue(line);return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Weit_Read_Matrx) {
-                this.readandSetBoneOffsetMatrixValue(line);return;
-            }
-            if (line.indexOf("AnimationKey ") > -1) {
-                this.nowReadMode = XfileLoadMode$1.Anim_KeyValueTypeRead;return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Anim_KeyValueTypeRead) {
-                this.nowAnimationKeyType = parseInt(line.substr(0, line.length - 1), 10);
-                this.nowReadMode = XfileLoadMode$1.Anim_KeyValueLength;
-                return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Anim_KeyValueLength) {
-                this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-                this.nowReaded = 0;
-                this.nowReadMode = XfileLoadMode$1.Anime_ReadKeyFrame;
-                return;
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Anime_ReadKeyFrame) {
-                this.readAnimationKeyFrame(line);return;
-            }
         }
     }, {
         key: 'endElement',
         value: function endElement(line) {
-            if (this.nowReadMode < XfileLoadMode$1.Anim_init && this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv === this.elementLv && this.nowReadMode > XfileLoadMode$1.none) {
+            if (this.nowReadMode == XfileLoadMode$1.Mesh) {
+                this.nowReadMode = XfileLoadMode$1.Element;
+            } else if (this.nowReadMode == XfileLoadMode$1.Mat_Set) {
+                this.nowReadMode = XfileLoadMode$1.Mesh;
+            } else if (this.nowReadMode == XfileLoadMode$1.Mat_detail) {
+                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials.push(this.nowMat);
+                this.nowReadMode = XfileLoadMode$1.Mat_Set;
+            } else if (this.nowReadMode == XfileLoadMode$1.Anim_Reading) {
+                this.nowReadMode = XfileLoadMode$1.Anim_init;
+            } else if (this.nowReadMode < XfileLoadMode$1.Anim_init && this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv === this.elementLv && this.nowReadMode > XfileLoadMode$1.none) {
                 if (this.frameHierarchie.length > 0) {
                     this.loadingXdata.FrameInfo_Raw[this.nowFrameName].children = [];
                     var keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
@@ -603,9 +631,7 @@ THREE.XLoader = function () {
                 } else {
                     this.nowFrameName = "";
                 }
-            }
-            if (this.nowReadMode === XfileLoadMode$1.Mat_Set) {
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials.push(this.nowMat);
+            } else if (this.nowReadMode == XfileLoadMode$1.Anim_init) {
                 this.nowReadMode = XfileLoadMode$1.Element;
             }
             this.elementLv--;
@@ -660,10 +686,6 @@ THREE.XLoader = function () {
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].VertexSetedBoneCount.push(0);
             this.nowReaded++;
-            if (this.nowReaded >= this.tgtLength) {
-                this.nowReadMode = XfileLoadMode$1.Index_init;
-                return true;
-            }
             return false;
         }
     }, {
@@ -676,16 +698,12 @@ THREE.XLoader = function () {
     }, {
         key: 'readVertexIndex',
         value: function readVertexIndex(line) {
-            var data = line.substr(2, line.length - 4).split(",");
+            var firstFind = line.indexOf(';') + 1;
+            var data = line.substr(firstFind).split(",");
             if (this.zflg) {
                 this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
             } else {
                 this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1], 10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
-            }
-            this.nowReaded++;
-            if (this.nowReaded >= this.tgtLength) {
-                this.nowReadMode = XfileLoadMode$1.Element;
-                return true;
             }
             return false;
         }
@@ -765,15 +783,6 @@ THREE.XLoader = function () {
             }
             this.nowReaded++;
             if (this.nowReaded >= this.tgtLength) {
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0] = [];
-                for (var m = 0; m < this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.length; m++) {
-                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m] = [];
-                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].a]);
-                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].b]);
-                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].c]);
-                }
-                this.nowReadMode = XfileLoadMode$1.Element;
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.uvsNeedUpdate = true;
                 return true;
             }
             return false;
@@ -892,8 +901,7 @@ THREE.XLoader = function () {
     }, {
         key: 'readBoneName',
         value: function readBoneName(line) {
-            this.nowReadMode = XfileLoadMode$1.Weit_IndexLength;
-            this.BoneInf.boneName = line.substr(1, line.length - 3);
+            this.BoneInf.boneName = line.trim();
             this.BoneInf.BoneIndex = this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.length;
             this.nowReaded = 0;
         }
@@ -925,17 +933,6 @@ THREE.XLoader = function () {
             }
         }
     }, {
-        key: 'readandSetBoneOffsetMatrixValue',
-        value: function readandSetBoneOffsetMatrixValue(line) {
-            var data = line.split(",");
-            this.BoneInf.initMatrix = new THREE.Matrix4();
-            this.ParseMatrixData(this.BoneInf.initMatrix, data);
-            this.BoneInf.OffsetMatrix = new THREE.Matrix4();
-            this.BoneInf.OffsetMatrix.getInverse(this.BoneInf.initMatrix);
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.push(this.BoneInf);
-            this.nowReadMode = XfileLoadMode$1.Element;
-        }
-    }, {
         key: 'readandCreateAnimationSet',
         value: function readandCreateAnimationSet(line) {
             this.frameStartLv = this.elementLv;
@@ -952,10 +949,13 @@ THREE.XLoader = function () {
             this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].FrameStartLv = this.frameStartLv;
         }
     }, {
-        key: 'readAnimationKeyFrame',
-        value: function readAnimationKeyFrame(line) {
+        key: 'readAnimationKeyFrameValue',
+        value: function readAnimationKeyFrameValue(line) {
             this.keyInfo = null;
             var data = line.split(";");
+            if (data == null || data.length < 3) {
+                return;
+            }
             var nowKeyframe = parseInt(data[0], 10);
             var frameFound = false;
             var tmpM = new THREE.Matrix4();
@@ -976,7 +976,7 @@ THREE.XLoader = function () {
             var data2 = data[2].split(",");
             switch (this.nowAnimationKeyType) {
                 case 0:
-                    tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2])));
+                    tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]), parseFloat(data2[3])));
                     this.keyInfo.matrix.multiply(tmpM);
                     break;
                 case 1:
@@ -987,6 +987,7 @@ THREE.XLoader = function () {
                     tmpM.makeTranslation(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
                     this.keyInfo.matrix.multiply(tmpM);
                     break;
+                case 3:
                 case 4:
                     this.ParseMatrixData(this.keyInfo.matrix, data2);
                     break;
@@ -995,10 +996,6 @@ THREE.XLoader = function () {
                 this.keyInfo.index = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length;
                 this.keyInfo.time = /*1.0 / this.loadingXdata.AnimTicksPerSecond * */this.keyInfo.Frame;
                 this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.push(this.keyInfo);
-            }
-            this.nowReaded++;
-            if (this.nowReaded >= this.tgtLength || line.indexOf(";;;") > -1) {
-                this.nowReadMode = XfileLoadMode$1.Anim_init;
             }
         }
     }, {
@@ -1012,11 +1009,11 @@ THREE.XLoader = function () {
                 }
             }
             if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
-                for (var _i2 = 0; _i2 < this.loadingXdata.FrameInfo.length; _i2++) {
-                    if (this.loadingXdata.FrameInfo[_i2].parent == null) {
-                        this.loadingXdata.FrameInfo[_i2].zflag = this.zflg;
+                for (var _i4 = 0; _i4 < this.loadingXdata.FrameInfo.length; _i4++) {
+                    if (this.loadingXdata.FrameInfo[_i4].parent == null) {
+                        this.loadingXdata.FrameInfo[_i4].zflag = this.zflg;
                         if (this.zflg) {
-                            this.loadingXdata.FrameInfo[_i2].scale.set(-1, 1, 1);
+                            this.loadingXdata.FrameInfo[_i4].scale.set(-1, 1, 1);
                         }
                     }
                 }
@@ -1033,6 +1030,12 @@ THREE.XLoader = function () {
             if (this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingBox();
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingSphere();
+                if (!this.loadingXdata.faceNormalFromFile) {
+                    this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeFaceNormals();
+                }
+                if (!this.loadingXdata.vertexNormalFromFile) {
+                    this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeVertexNormals();
+                }
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.verticesNeedUpdate = true;
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.normalsNeedUpdate = true;
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.colorsNeedUpdate = true;
@@ -1078,6 +1081,11 @@ THREE.XLoader = function () {
                         }
                         for (var bi = 0; bi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
                             if (putBones[_m2].name === this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].boneName) {
+                                putBones[_m2].matrix = new THREE.Matrix4();
+                                putBones[_m2].applyMatrix(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].OffsetMatrix); // OffsetMatrix
+                                //putBones[_m2].matrixWorld = new THREE.Matrix4();
+                                //putBones[_m2].matrixWorld.copy(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].initMatrix);
+                                //putBones[_m2].updateMatrixWorld(true);
                                 for (var vi = 0; vi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces.length; vi++) {
                                     var nowVertexID = this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces[vi];
                                     var nowVal = this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Weights[vi];
@@ -1141,6 +1149,7 @@ THREE.XLoader = function () {
                 var keys2 = Object.keys(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
                 if (this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]][keys2[0]].boneName == this.loadingXdata.FrameInfo[m].name) {
                     tgtModel = this.loadingXdata.FrameInfo[m];
+                    break;
                 }
             }
             if (tgtModel != null) {

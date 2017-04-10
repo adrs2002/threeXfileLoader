@@ -23,6 +23,7 @@ export default XfileLoadMode = {
     Mat_Face_Set: 103,
     Mat_Set: 111,
 
+    Mat_detail: 121,
     Mat_Set_Texture: 121,
     Mat_Set_LightTex: 122,
     Mat_Set_EmissiveTex: 123,

@@ -36,10 +36,16 @@
 </head>
 
 <body>
+ 
     <div id="info">
 		<a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test<br />
 	</div>
     <div id="canvase3d"></div>
+
+  <div id="dialog_tree" style="width:90%; height:90%;display:none;">
+      <ul id="bonetree" class="treeview"></ul>
+    </div>
+
 
     <!-- <script src="three.min.js"></script> -->
     <script src="../three.js"></script>
@@ -84,6 +90,7 @@
 
         var animates = [];
         var actions = [];
+        var action = null;
         init();
 
         function init() {
@@ -122,34 +129,29 @@
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/paul_original/paul_org.x', true, true], function (object) {
+            loader.load(['content/exp/paul4u.x', false, true], function (object) {
                 for (var i = 0; i < object.FrameInfo.length; i++) {
                     Models.push(object.FrameInfo[i]);
+                    Models[i].visible = false;
                     scene.add(Models[i]);
-
+                   
                     //create animations
                     if (Models[i] instanceof THREE.SkinnedMesh) {
                         skeletonHelper = new THREE.SkeletonHelper(Models[i]);
                         scene.add(skeletonHelper);
-
-                        if (object.XAnimationObj !== undefined && object.XAnimationObj.length !== 0) {
+            
+                        if (object.XAnimationObj != null && object.XAnimationObj.length !== 0) {
                             Models[i].geometry.animations = [];
 
-                            /* 
-                            *  ↓ that is BASIC animation data code.
-                            *  Usually, please use this.
-                            *  Because of the data I have, I use a different code
-                            * 
                            for (var a = 0; a < object.XAnimationObj.length; a++) {
                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(object.XAnimationObj[a], Models[i].skeleton.bones));
                            } 
                            Models[i].mixer = new THREE.AnimationMixer(Models[i]);
                            animates.push(Models[i].mixer);
 
-                           var action = Models[i].mixer.clipAction(Models[i].geometry.animations[0]);
+                           action = Models[i].mixer.clipAction(Models[i].geometry.animations[0]);
                            action.play();
-                           */
-
+                           
                         }
                     }
                 }
@@ -193,13 +195,13 @@
             var nowTime = Date.now();
             var dulTime = nowTime - LastDateTime;
             LastDateTime = nowTime;
-
+            
             if (animates != null && animates.length > 0) {
                 for (var i = 0; i < animates.length; i++) {
                     animates[i].update(dulTime);
                 }
             }
-
+           
             if (Models != null && Models.length > 0) {
                 if (skeletonHelper != null) { skeletonHelper.update(); }
 

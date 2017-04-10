@@ -119,10 +119,11 @@
             };
 
             Texloader = new THREE.TextureLoader();
+            Texloader.crossOrigin = '*';
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/SSR06_Born2.x', true, true], function (object) {
+            loader.load(['content/SSR06_Born2.x', false, true], function (object) {
                 for (var i = 0; i < object.FrameInfo.length; i++) {
                     Models.push(object.FrameInfo[i]);
                     scene.add(Models[i]);
@@ -132,7 +133,7 @@
                         skeletonHelper = new THREE.SkeletonHelper(Models[i]);
                         scene.add(skeletonHelper);
 
-                        if (object.XAnimationObj !== undefined && object.XAnimationObj.length !== 0) {
+                        if (object.XAnimationObj != null && object.XAnimationObj.length !== 0) {
                             Models[i].geometry.animations = [];
 
                             /* 
@@ -151,7 +152,7 @@
                            */
 
                             // ↓ that is a code for [ All animation-keyframes are connected data ].
-
+							
                             {
                                 Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'stand', 10 * object.XAnimationObj[0].fps, 11 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
                                 Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'walk', 50 * object.XAnimationObj[0].fps, 80 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
@@ -194,6 +195,7 @@
                                     actions[v].play();
                                 });
                             }
+                            
                             ///////////
                         }
                     }
