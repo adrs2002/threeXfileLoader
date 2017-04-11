@@ -1042,6 +1042,7 @@ THREE.XLoader = function () {
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.uvsNeedUpdate = true;
                 this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.groupsNeedUpdate = true;
                 var putBones = [];
+                var BoneInverse = [];
                 var BoneDics = [];
                 var rootBone = new THREE.Bone();
                 if (this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs != null && this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length) {
@@ -1054,10 +1055,10 @@ THREE.XLoader = function () {
                         var b = new THREE.Bone();
                         b.name = keys[m];
                         b.applyMatrix(this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
-                        b.matrixWorld = b.matrix;
-                        b.FrameTransformMatrix = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
                         BoneDics_Name[b.name] = putBones.length;
                         putBones.push(b);
+                        var ivm = new THREE.Matrix4();
+                        BoneInverse.push(ivm);
                     }
                     for (var _m = 0; _m < putBones.length; _m++) {
                         for (var dx = 0; dx < this.loadingXdata.FrameInfo_Raw[putBones[_m].name].children.length; dx++) {
@@ -1081,11 +1082,6 @@ THREE.XLoader = function () {
                         }
                         for (var bi = 0; bi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
                             if (putBones[_m2].name === this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].boneName) {
-                                putBones[_m2].matrix = new THREE.Matrix4();
-                                putBones[_m2].applyMatrix(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].OffsetMatrix); // OffsetMatrix
-                                //putBones[_m2].matrixWorld = new THREE.Matrix4();
-                                //putBones[_m2].matrixWorld.copy(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].initMatrix);
-                                //putBones[_m2].updateMatrixWorld(true);
                                 for (var vi = 0; vi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces.length; vi++) {
                                     var nowVertexID = this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces[vi];
                                     var nowVal = this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Weights[vi];
@@ -1107,8 +1103,10 @@ THREE.XLoader = function () {
                                             this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].w = nowVal;
                                             break;
                                     }
+                                    this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.vertices[nowVertexID].applyMatrix4(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].initMatrix);
                                     this.loadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]++;
                                 }
+                                break;
                             }
                         }
                     }
@@ -1116,7 +1114,7 @@ THREE.XLoader = function () {
                         this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials[sk].skinning = true;
                     }
                     mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
-                    var skeleton = new THREE.Skeleton(putBones);
+                    var skeleton = new THREE.Skeleton(putBones /*, BoneInverse*/);
                     mesh.add(putBones[0]);
                     mesh.bind(skeleton);
                 } else {

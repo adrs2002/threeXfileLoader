@@ -1188,6 +1188,7 @@ class XLoader {
             //BoneはFrame階層基準で作成、その後にWeit割り当てのボーン配列を再セットする
 
             const putBones = [];
+            const BoneInverse = [];
             const BoneDics = [];
             let rootBone = new THREE.Bone();
             if (this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs != null && this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length) {
@@ -1200,12 +1201,15 @@ class XLoader {
 
                     const b = new THREE.Bone();
                     b.name = keys[m];
+                    
                     b.applyMatrix(this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
-                    b.matrixWorld = b.matrix;
-                    b.FrameTransformMatrix = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
+                    //b.matrixWorld = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
+                    //b.FrameTransformMatrix = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;                    
                     BoneDics_Name[b.name] = putBones.length;
                     putBones.push(b);
-
+                    const ivm = new THREE.Matrix4();
+                    //ivm.getInverse(this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
+                    BoneInverse.push(ivm);
                 }
 
 
@@ -1250,13 +1254,6 @@ class XLoader {
                     for (let bi = 0; bi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
 
                         if (putBones[m].name === this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].boneName) {
-                            putBones[m].matrix = new THREE.Matrix4();
-                            putBones[m].applyMatrix(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].OffsetMatrix);
-                            /*
-                            putBones[m].matrixWorld = new THREE.Matrix4();
-                            putBones[m].matrixWorld.copy(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].initMatrix);
-                            putBones[m].matrixWorldNeedsUpdate = true;
-                            */
                             //ウェイトのあるボーンであることが確定。頂点情報を割り当てる 
                             for (let vi = 0; vi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces.length; vi++) {
                                 //頂点へ割り当て
@@ -1282,10 +1279,13 @@ class XLoader {
                                         break;
                                 }
 
+                                // init boneから離れている特殊ケース←無理
+                                //this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.vertices[nowVertexID].applyMatrix4(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].initMatrix);
+
                                 this.loadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]++;
 
                             }
-
+                            break;
                         }
 
                     }
@@ -1300,7 +1300,7 @@ class XLoader {
                 }
 
                 mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
-                const skeleton = new THREE.Skeleton(putBones);
+                const skeleton = new THREE.Skeleton(putBones/*, BoneInverse*/);
                 mesh.add(putBones[0]);
                 mesh.bind(skeleton);
 

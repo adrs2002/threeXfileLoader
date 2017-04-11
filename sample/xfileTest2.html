@@ -132,14 +132,13 @@
             loader.load(['content/exp/paul4u.x', false, true], function (object) {
                 for (var i = 0; i < object.FrameInfo.length; i++) {
                     Models.push(object.FrameInfo[i]);
-                    Models[i].visible = false;
                     scene.add(Models[i]);
                    
                     //create animations
                     if (Models[i] instanceof THREE.SkinnedMesh) {
                         skeletonHelper = new THREE.SkeletonHelper(Models[i]);
                         scene.add(skeletonHelper);
-            
+                        
                         if (object.XAnimationObj != null && object.XAnimationObj.length !== 0) {
                             Models[i].geometry.animations = [];
 
@@ -153,6 +152,7 @@
                            action.play();
                            
                         }
+                        
                     }
                 }
 

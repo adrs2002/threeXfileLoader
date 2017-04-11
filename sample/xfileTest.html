@@ -126,6 +126,7 @@
             loader.load(['content/SSR06_Born2.x', false, true], function (object) {
                 for (var i = 0; i < object.FrameInfo.length; i++) {
                     Models.push(object.FrameInfo[i]);
+                    Models[i].visible = false;
                     scene.add(Models[i]);
 
                     //create animations
@@ -154,6 +155,7 @@
                             // ↓ that is a code for [ All animation-keyframes are connected data ].
 							
                             {
+                                /*
                                 Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'stand', 10 * object.XAnimationObj[0].fps, 11 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
                                 Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'walk', 50 * object.XAnimationObj[0].fps, 80 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
                                 Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'dash', 140 * object.XAnimationObj[0].fps, 160 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
@@ -194,6 +196,7 @@
                                     animates[0].stopAllAction();
                                     actions[v].play();
                                 });
+                                */ 
                             }
                             
                             ///////////
