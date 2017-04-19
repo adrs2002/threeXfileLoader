@@ -350,16 +350,19 @@ class XLoader {
     readSkinWeights(_data) {
         this.BoneInf = new XboneInf();
         //ボーン名、長さ
-        const find = _data.indexOf(";");
-        this.readBoneName(_data.substr(0, find - 1).replace('"', ''));
+        const find = _data.indexOf(";") + 1;
+        this.readBoneName(_data.substr(1, find - 3).replace('"', ''));
         //対象頂点数。ここがゼロならnullボーン？      
-        const find_1 = _data.indexOf(";", find + 1) + 1;
+        const find_1 = _data.indexOf(";", find) + 1;
+        const v_Length = parseInt(_data.substr(find, find_1 - find), 10);
         let matrixStart = 0;
-        if (parseInt(_data.substr(find, find_1 - find), 10) === 0) {
-            matrixStart = find_1 + 1;
+        if (v_Length === 0) {
+            matrixStart = find_1;
         } else {
             //対象頂点
-            const find2 = _data.indexOf(";", find_1 + 1);
+            var _find = _data.indexOf(";", find_1);
+            var i_data = _data.substr(find_1, _find - find_1).split(",");
+            const find2 = _data.indexOf(";", find_1);
             const i_data = _data.substr(find_1, find2 - find_1).split(",");
             for (let i = 0; i < i_data.length; i++) {
                 this.BoneInf.Indeces.push(parseInt(i_data[i], 10));
@@ -1083,7 +1086,7 @@ class XLoader {
         const data2 = data[2].split(",");
         switch (this.nowAnimationKeyType) {
 
-            case 0:              
+            case 0:
                 tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]), parseFloat(data2[3])));
                 this.keyInfo.matrix.multiply(tmpM);
                 break;
@@ -1188,7 +1191,7 @@ class XLoader {
             //BoneはFrame階層基準で作成、その後にWeit割り当てのボーン配列を再セットする
 
             const putBones = [];
-            const BoneInverse = [];
+            const BoneOffsets = [];
             const BoneDics = [];
             let rootBone = new THREE.Bone();
             if (this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs != null && this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length) {
@@ -1201,18 +1204,25 @@ class XLoader {
 
                     const b = new THREE.Bone();
                     b.name = keys[m];
-                    
+
                     b.applyMatrix(this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
                     //b.matrixWorld = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
                     //b.FrameTransformMatrix = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;                    
                     BoneDics_Name[b.name] = putBones.length;
-                    putBones.push(b);
+
                     const ivm = new THREE.Matrix4();
-                    //ivm.getInverse(this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
-                    BoneInverse.push(ivm);
+                    let find = false;
+                    for (let bi = 0; bi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
+                        if (b.name == this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].boneName) {
+                            b.matrix = new THREE.Matrix4();
+                            b.matrix.multiply(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].initMatrix);
+                            ivm.multiply(this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].OffsetMatrix) ;
+                            break;
+                        }
+                    }
+                    putBones.push(b);
+                    BoneOffsets.push(ivm);
                 }
-
-
                 //今度はボーンの親子構造を作成するために、再度ループさせる
                 for (let m = 0; m < putBones.length; m++) {
 
@@ -1220,7 +1230,6 @@ class XLoader {
 
                         const nowBoneIndex = BoneDics_Name[this.loadingXdata.FrameInfo_Raw[putBones[m].name].children[dx]];
                         if (putBones[nowBoneIndex] != null) {
-
                             putBones[m].add(putBones[nowBoneIndex]);
                         }
 
@@ -1300,7 +1309,7 @@ class XLoader {
                 }
 
                 mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
-                const skeleton = new THREE.Skeleton(putBones/*, BoneInverse*/);
+                const skeleton = new THREE.Skeleton(putBones);
                 mesh.add(putBones[0]);
                 mesh.bind(skeleton);
 
@@ -1312,6 +1321,7 @@ class XLoader {
             }
 
             mesh.name = nowFrameName;
+            mesh.appendBoneOffsets = BoneOffsets;
             this.loadingXdata.FrameInfo_Raw[nowFrameName].Mesh = mesh;
             this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry = null;
 
