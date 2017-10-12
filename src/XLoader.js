@@ -1,4 +1,3 @@
-
 "use strict";
 
 /**
@@ -24,17 +23,63 @@
  */
 
 // import * as THREE from '../three.js'
-import XfileLoadMode from './parts/xFileLoadMode.js'
+
+// import this.XfileLoadMode from './parts/this.xFileLoadMode.js'
 import Xdata from './parts/rawXdata.js'
 import XboneInf from './parts/xBoneInf.js'
 import XAnimationInfo from './parts/xAnimationInfo.js'
 import XAnimationObj from './parts/XAnimationObj.js'
-import XFrameInfo from './parts/XFrameInfo.js'
+import XFrameInfo from './parts/xFrameInfo.js'
 import XKeyFrameInfo from './parts/KeyFrameInfo.js'
 
-class XLoader {
+
+export default class XLoader {
     // コンストラクタ
     constructor(manager, Texloader, _zflg) {
+
+        this.XfileLoadMode = {
+
+            none: -1,
+            Element: 1,
+            FrameTransformMatrix_Read: 3,
+            Mesh: 5,
+            Vartex_init: 10,
+            Vartex_Read: 11,
+            Index_init: 20,
+            index_Read: 21,
+            Uv_init: 30,
+            Uv_Read: 31,
+
+            Normal_V_init: 40,
+            Normal_V_Read: 41,
+            Normal_I_init: 42,
+            Normal_I_Read: 43,
+
+            Mat_Face_init: 101,
+            Mat_Face_len_Read: 102,
+            Mat_Face_Set: 103,
+            Mat_Set: 111,
+
+            Mat_Set_Texture: 121,
+            Mat_Set_LightTex: 122,
+            Mat_Set_EmissiveTex: 123,
+            Mat_Set_BumpTex: 124,
+            Mat_Set_NormalTex: 125,
+            Mat_Set_EnvTex: 126,
+
+            Weit_init: 201,
+            Weit_IndexLength: 202,
+            Weit_Read_Index: 203,
+            Weit_Read_Value: 204,
+            Weit_Read_Matrx: 205,
+
+            Anim_init: 1001,
+            Anim_Reading: 1002,
+            Anim_KeyValueTypeRead: 1003,
+            Anim_KeyValueLength: 1004,
+            Anime_ReadKeyFrame: 1005,
+
+        };
 
         this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
         this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
@@ -42,9 +87,9 @@ class XLoader {
 
         this.url = "";
         this.baseDir = "";
-        // XfileLoadMode = XfileLoadMode;
+        // this.XfileLoadMode = this.XfileLoadMode;
         // 現在の行読み込みもーど
-        this.nowReadMode = XfileLoadMode.none;
+        this.nowReadMode = this.XfileLoadMode.none;
 
         this.nowAnimationKeyType = 4;
 
@@ -94,6 +139,9 @@ class XLoader {
         this.data = null;
         this.onLoad = null;
 
+        this.IsUvYReverse = true;
+
+
     }
 
     //読み込み開始命令部
@@ -104,8 +152,12 @@ class XLoader {
 
         for (let i = 0; i < _arg.length; i++) {
             switch (i) {
-                case 0: this.url = _arg[i]; break;
-                case 1: this.zflg = _arg[i]; break;
+                case 0:
+                    this.url = _arg[i];
+                    break;
+                case 1:
+                    this.zflg = _arg[i];
+                    break;
             }
         }
 
@@ -187,9 +239,9 @@ class XLoader {
         const binData = this.ensureBinary(data);
         this.data = this.ensureString(data);
         this.onLoad = onLoad;
-        return this.isBinary(binData)
-            ? this.parseBinary(binData)
-            : this.parseASCII();
+        return this.isBinary(binData) ?
+            this.parseBinary(binData) :
+            this.parseASCII();
 
     }
 
@@ -234,7 +286,9 @@ class XLoader {
 
                 EndFlg = true;
                 this.readFinalize();
-                setTimeout(() => { this.animationFinalize() }, 1);
+                setTimeout(() => {
+                    this.animationFinalize()
+                }, 1);
                 //this.onLoad(this.loadingXdata);
                 break;
 
@@ -242,7 +296,11 @@ class XLoader {
 
         }
 
-        if (!EndFlg) { setTimeout(() => { this.mainloop() }, 1); }
+        if (!EndFlg) {
+            setTimeout(() => {
+                this.mainloop()
+            }, 1);
+        }
 
     }
 
@@ -253,9 +311,13 @@ class XLoader {
 
         //後でちゃんと考えるさ･･
         // template が入っていたら、その行は飛ばす！飛ばさなきゃ読める形が増えるだろうけど、後回し　
-        if (line.indexOf("template ") > -1) { return; }
+        if (line.indexOf("template ") > -1) {
+            return;
+        }
 
-        if (line.length === 0) { return; }
+        if (line.length === 0) {
+            return;
+        }
 
         //DirectXは[ Frame ] で中身が構成されているため、Frameのツリー構造を一度再現する。
         //その後、Three.jsのObject3D型に合わせて再構築する必要がある
@@ -275,7 +337,10 @@ class XLoader {
 
         if (line.indexOf("}") > -1) {
             //カッコが終わった時の動作
-            if (this.elementLv < 1 || this.nowFrameName === "") { this.elementLv = 0; return; }
+            if (this.elementLv < 1 || this.nowFrameName === "") {
+                this.elementLv = 0;
+                return;
+            }
             this.endElement();
             return;
 
@@ -292,17 +357,17 @@ class XLoader {
 
         if (line.indexOf("FrameTransformMatrix") > -1) {
 
-            this.nowReadMode = XfileLoadMode.FrameTransformMatrix_Read;
+            this.nowReadMode = this.XfileLoadMode.FrameTransformMatrix_Read;
             return;
 
         }
 
-        if (this.nowReadMode === XfileLoadMode.FrameTransformMatrix_Read) {
+        if (this.nowReadMode === this.XfileLoadMode.FrameTransformMatrix_Read) {
 
             const data = line.split(",");
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
             this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, data);
-            this.nowReadMode = XfileLoadMode.Element;
+            this.nowReadMode = this.XfileLoadMode.Element;
             return;
 
         }
@@ -310,49 +375,87 @@ class XLoader {
         ////////////////////////////////////////////////////////////////////
         ///Mesh ＝　面データの読み込み開始
         /*  Mesh　は、頂点数（1行または ; ）→頂点データ(;区切りでxyz要素)→面数（index要素数）→index用データ　で成り立つ
-        */
-        if (line.indexOf("Mesh ") > -1) { this.beginReadMesh(line); return; }
+         */
+        if (line.indexOf("Mesh ") > -1) {
+            this.beginReadMesh(line);
+            return;
+        }
 
         //頂点数読み出し
-        if (this.nowReadMode === XfileLoadMode.Vartex_init) { this.readVertexCount(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Vartex_init) {
+            this.readVertexCount(line);
+            return;
+        }
         //頂点読み出し
-        if (this.nowReadMode === XfileLoadMode.Vartex_Read) {
+        if (this.nowReadMode === this.XfileLoadMode.Vartex_Read) {
 
-            if (this.readVertex(line)) { return; }
+            if (this.readVertex(line)) {
+                return;
+            }
 
         }
 
         //Index読み出し///////////////////
-        if (this.nowReadMode === XfileLoadMode.Index_init) { this.readIndexLength(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Index_init) {
+            this.readIndexLength(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.index_Read) {
+        if (this.nowReadMode === this.XfileLoadMode.index_Read) {
 
-            if (this.readVertexIndex(line)) { return; }
+            if (this.readVertexIndex(line)) {
+                return;
+            }
 
         }
 
         //Normal部//////////////////////////////////////////////////
         //XFileでのNormalは、頂点毎の向き→面に属してる頂点のID　という順番で入っている。
-        if (line.indexOf("MeshNormals ") > -1) { this.beginMeshNormal(line); return; }
+        if (line.indexOf("MeshNormals ") > -1) {
+            this.beginMeshNormal(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Normal_V_init) { this.readMeshNormalCount(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Normal_V_init) {
+            this.readMeshNormalCount(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Normal_V_Read) { if (this.readMeshNormalVertex(line)) { return; } }
+        if (this.nowReadMode === this.XfileLoadMode.Normal_V_Read) {
+            if (this.readMeshNormalVertex(line)) {
+                return;
+            }
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Normal_I_init) { this.readMeshNormalIndexCount(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Normal_I_init) {
+            this.readMeshNormalIndexCount(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Normal_I_Read) { if (this.readMeshNormalIndex(line)) { return; } }
+        if (this.nowReadMode === this.XfileLoadMode.Normal_I_Read) {
+            if (this.readMeshNormalIndex(line)) {
+                return;
+            }
+        }
         ///////////////////////////////////////////////////////////////
 
         //UV///////////////////////////////////////////////////////////
         //UV宣言
-        if (line.indexOf("MeshTextureCoords ") > -1) { this.nowReadMode = XfileLoadMode.Uv_init; return; }
+        if (line.indexOf("MeshTextureCoords ") > -1) {
+            this.nowReadMode = this.XfileLoadMode.Uv_init;
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Uv_init) { this.readUvInit(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Uv_init) {
+            this.readUvInit(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Uv_Read) {
+        if (this.nowReadMode === this.XfileLoadMode.Uv_Read) {
             //次にUVを仮の入れ物に突っ込んでいく
-            if (this.readUv(line)) { return; }
+            if (this.readUv(line)) {
+                return;
+            }
 
         }
         ////////////////////////////////////////////////////////////
@@ -360,77 +463,123 @@ class XLoader {
         //マテリアルのセット（面に対するマテリアルの割り当て）//////////////////////////
         if (line.indexOf("MeshMaterialList ") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Mat_Face_init;
+            this.nowReadMode = this.XfileLoadMode.Mat_Face_init;
             return;
 
         }
-        if (this.nowReadMode === XfileLoadMode.Mat_Face_init) {
+        if (this.nowReadMode === this.XfileLoadMode.Mat_Face_init) {
             //マテリアル数がここ？今回は特に影響ないようだが
-            this.nowReadMode = XfileLoadMode.Mat_Face_len_Read;
+            this.nowReadMode = this.XfileLoadMode.Mat_Face_len_Read;
             return;
 
         }
-        if (this.nowReadMode === XfileLoadMode.Mat_Face_len_Read) { this.readMatrixSetLength(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Mat_Face_len_Read) {
+            this.readMatrixSetLength(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Mat_Face_Set) { if (this.readMaterialBind(line)) { return; } }
+        if (this.nowReadMode === this.XfileLoadMode.Mat_Face_Set) {
+            if (this.readMaterialBind(line)) {
+                return;
+            }
+        }
 
         //マテリアル定義
-        if (line.indexOf("Material ") > -1) { this.readMaterialInit(line); return; }
+        if (line.indexOf("Material ") > -1) {
+            this.readMaterialInit(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Mat_Set) { this.readandSetMaterial(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Mat_Set) {
+            this.readandSetMaterial(line);
+            return;
+        }
 
-        if (this.nowReadMode >= XfileLoadMode.Mat_Set_Texture && this.nowReadMode < XfileLoadMode.Weit_init) { this.readandSetMaterialTexture(line); return; }
+        if (this.nowReadMode >= this.XfileLoadMode.Mat_Set_Texture && this.nowReadMode < this.XfileLoadMode.Weit_init) {
+            this.readandSetMaterialTexture(line);
+            return;
+        }
         /////////////////////////////////////////////////////////////////////////
 
         //Bone部（仮//////////////////////////////////////////////////////////////////////
-        if (line.indexOf("SkinWeights ") > -1 && this.nowReadMode >= XfileLoadMode.Element) { this.readBoneInit(line); return; }
+        if (line.indexOf("SkinWeights ") > -1 && this.nowReadMode >= this.XfileLoadMode.Element) {
+            this.readBoneInit(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Weit_init) { this.readBoneName(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Weit_init) {
+            this.readBoneName(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Weit_IndexLength) { this.readBoneVertexLength(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Weit_IndexLength) {
+            this.readBoneVertexLength(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Weit_Read_Index) { this.readandSetBoneVertex(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Weit_Read_Index) {
+            this.readandSetBoneVertex(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Weit_Read_Value) { this.readandSetBoneWeightValue(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Weit_Read_Value) {
+            this.readandSetBoneWeightValue(line);
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Weit_Read_Matrx) { this.readandSetBoneOffsetMatrixValue(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Weit_Read_Matrx) {
+            this.readandSetBoneOffsetMatrixValue(line);
+            return;
+        }
         ///////////////////////////////////////////////////
 
         //アニメーション部
         ////////////////////////////////////////////////////////////
         //ここからは、Frame構造とは切り離して考える必要がある。
         //別ファイルに格納されている可能性も考慮しなくては…
-        if (line.indexOf("AnimationSet ") > -1) { this.readandCreateAnimationSet(line); return; }
+        if (line.indexOf("AnimationSet ") > -1) {
+            this.readandCreateAnimationSet(line);
+            return;
+        }
 
-        if (line.indexOf("Animation ") > -1 && this.nowReadMode === XfileLoadMode.Anim_init) { this.readAndCreateAnimation(line); return; }
+        if (line.indexOf("Animation ") > -1 && this.nowReadMode === this.XfileLoadMode.Anim_init) {
+            this.readAndCreateAnimation(line);
+            return;
+        }
 
-        if (line.indexOf("AnimationKey ") > -1) { this.nowReadMode = XfileLoadMode.Anim_KeyValueTypeRead; return; }
+        if (line.indexOf("AnimationKey ") > -1) {
+            this.nowReadMode = this.XfileLoadMode.Anim_KeyValueTypeRead;
+            return;
+        }
 
-        if (this.nowReadMode === XfileLoadMode.Anim_KeyValueTypeRead) {
+        if (this.nowReadMode === this.XfileLoadMode.Anim_KeyValueTypeRead) {
 
             this.nowAnimationKeyType = parseInt(line.substr(0, line.length - 1), 10);
-            this.nowReadMode = XfileLoadMode.Anim_KeyValueLength;
+            this.nowReadMode = this.XfileLoadMode.Anim_KeyValueLength;
             return;
 
         }
 
-        if (this.nowReadMode === XfileLoadMode.Anim_KeyValueLength) {
+        if (this.nowReadMode === this.XfileLoadMode.Anim_KeyValueLength) {
 
             this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
             this.nowReaded = 0;
-            this.nowReadMode = XfileLoadMode.Anime_ReadKeyFrame;
+            this.nowReadMode = this.XfileLoadMode.Anime_ReadKeyFrame;
             return;
 
         }
         //やっとキーフレーム読み込み
-        if (this.nowReadMode === XfileLoadMode.Anime_ReadKeyFrame) { this.readAnimationKeyFrame(line); return; }
+        if (this.nowReadMode === this.XfileLoadMode.Anime_ReadKeyFrame) {
+            this.readAnimationKeyFrame(line);
+            return;
+        }
         ////////////////////////
     }
 
 
     endElement(line) {
 
-        if (this.nowReadMode < XfileLoadMode.Anim_init && this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv === this.elementLv && this.nowReadMode > XfileLoadMode.none) {
+        if (this.nowReadMode < this.XfileLoadMode.Anim_init && this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv === this.elementLv && this.nowReadMode > this.XfileLoadMode.none) {
 
             //１つのFrame終了
             if (this.frameHierarchie.length > 0) {
@@ -468,10 +617,10 @@ class XLoader {
 
         }
 
-        if (this.nowReadMode === XfileLoadMode.Mat_Set) {
+        if (this.nowReadMode === this.XfileLoadMode.Mat_Set) {
             //子階層を探してセットする                    
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials.push(this.nowMat);
-            this.nowReadMode = XfileLoadMode.Element;
+            this.nowReadMode = this.XfileLoadMode.Element;
 
         }
 
@@ -482,7 +631,7 @@ class XLoader {
     beginFrame(line) {
 
         this.frameStartLv = this.elementLv;
-        this.nowReadMode = XfileLoadMode.Element;
+        this.nowReadMode = this.XfileLoadMode.Element;
 
         this.nowFrameName = line.substr(6, line.length - 8);
         this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
@@ -504,7 +653,9 @@ class XLoader {
 
             this.frameStartLv = this.elementLv;
             this.nowFrameName = line.substr(5, line.length - 6);
-            if (this.nowFrameName === "") { this.nowFrameName = "mesh_" + this.loadingXdata.FrameInfo_Raw.length; }
+            if (this.nowFrameName === "") {
+                this.nowFrameName = "mesh_" + this.loadingXdata.FrameInfo_Raw.length;
+            }
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv = this.frameStartLv;
@@ -513,16 +664,16 @@ class XLoader {
 
         this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry = new THREE.Geometry();
         this.geoStartLv = this.elementLv;
-        this.nowReadMode = XfileLoadMode.Vartex_init;
+        this.nowReadMode = this.XfileLoadMode.Vartex_init;
 
-        Bones = [];
+        this.Bones = [];
         this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials = [];
 
     }
 
     readVertexCount(line) {
 
-        this.nowReadMode = XfileLoadMode.Vartex_Read;
+        this.nowReadMode = this.XfileLoadMode.Vartex_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
 
@@ -540,7 +691,7 @@ class XLoader {
 
         if (this.nowReaded >= this.tgtLength) {
 
-            this.nowReadMode = XfileLoadMode.Index_init;
+            this.nowReadMode = this.XfileLoadMode.Index_init;
             return true;
 
         }
@@ -551,7 +702,7 @@ class XLoader {
 
     readIndexLength(line) {
 
-        this.nowReadMode = XfileLoadMode.index_Read;
+        this.nowReadMode = this.XfileLoadMode.index_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
 
@@ -573,7 +724,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength) {
 
-            this.nowReadMode = XfileLoadMode.Element;
+            this.nowReadMode = this.XfileLoadMode.Element;
             return true;
 
         }
@@ -584,7 +735,7 @@ class XLoader {
 
     beginMeshNormal(line) {
 
-        this.nowReadMode = XfileLoadMode.Normal_V_init;
+        this.nowReadMode = this.XfileLoadMode.Normal_V_init;
         this.normalVectors = [];
         this.facesNormal = [];
 
@@ -592,7 +743,7 @@ class XLoader {
 
     readMeshNormalCount(line) {
 
-        this.nowReadMode = XfileLoadMode.Normal_V_Read;
+        this.nowReadMode = this.XfileLoadMode.Normal_V_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
 
@@ -605,7 +756,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength) {
 
-            this.nowReadMode = XfileLoadMode.Normal_I_init;
+            this.nowReadMode = this.XfileLoadMode.Normal_I_init;
             return true;
 
         }
@@ -616,7 +767,7 @@ class XLoader {
 
     readMeshNormalIndexCount(line) {
 
-        this.nowReadMode = XfileLoadMode.Normal_I_Read;
+        this.nowReadMode = this.XfileLoadMode.Normal_I_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
 
@@ -650,7 +801,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength) {
 
-            this.nowReadMode = XfileLoadMode.Element;
+            this.nowReadMode = this.XfileLoadMode.Element;
             return true;
 
         }
@@ -663,7 +814,7 @@ class XLoader {
     readUvInit(line) {
 
         //まず、セットされるUVの頂点数
-        this.nowReadMode = XfileLoadMode.Uv_Read;
+        this.nowReadMode = this.XfileLoadMode.Uv_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
         this.tmpUvArray = [];
@@ -675,7 +826,7 @@ class XLoader {
 
         const data = line.split(";");
         //これは宣言された頂点の順に入っていく
-        if (THREE.XLoader.IsUvYReverse) {
+        if (this.IsUvYReverse) {
 
             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
 
@@ -699,7 +850,7 @@ class XLoader {
 
             }
 
-            this.nowReadMode = XfileLoadMode.Element;
+            this.nowReadMode = this.XfileLoadMode.Element;
             this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.uvsNeedUpdate = true;
             return true;
 
@@ -711,7 +862,7 @@ class XLoader {
 
     readMatrixSetLength(line) {
 
-        this.nowReadMode = XfileLoadMode.Mat_Face_Set;
+        this.nowReadMode = this.XfileLoadMode.Mat_Face_Set;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
 
@@ -724,7 +875,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength) {
 
-            this.nowReadMode = XfileLoadMode.Element;
+            this.nowReadMode = this.XfileLoadMode.Element;
             return true;
 
         }
@@ -735,18 +886,21 @@ class XLoader {
 
     readMaterialInit(line) {
 
-        this.nowReadMode = XfileLoadMode.Mat_Set;
+        this.nowReadMode = this.XfileLoadMode.Mat_Set;
         this.matReadLine = 0;
-        this.nowMat = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+        this.nowMat = new THREE.MeshPhongMaterial({
+            color: Math.random() * 0xffffff
+        });
         let matName = line.substr(9, line.length - 10);
-        if (matName !== "") { this.nowMat.name = matName; }
+        if (matName !== "") {
+            this.nowMat.name = matName;
+        }
 
         if (this.zflg) {
 
             this.nowMat.side = THREE.BackSide;
 
-        }
-        else {
+        } else {
 
             this.nowMat.side = THREE.FrontSide;
 
@@ -789,25 +943,25 @@ class XLoader {
 
         if (line.indexOf("TextureFilename") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Mat_Set_Texture;
+            this.nowReadMode = this.XfileLoadMode.Mat_Set_Texture;
 
         } else if (line.indexOf("BumpMapFilename") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Mat_Set_BumpTex;
+            this.nowReadMode = this.XfileLoadMode.Mat_Set_BumpTex;
             this.nowMat.bumpScale = 0.05;
 
         } else if (line.indexOf("NormalMapFilename") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Mat_Set_NormalTex;
+            this.nowReadMode = this.XfileLoadMode.Mat_Set_NormalTex;
             this.nowMat.normalScale = new THREE.Vector2(2, 2);
 
         } else if (line.indexOf("EmissiveMapFilename") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Mat_Set_EmissiveTex;
+            this.nowReadMode = this.XfileLoadMode.Mat_Set_EmissiveTex;
 
         } else if (line.indexOf("LightMapFilename") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Mat_Set_LightTex;
+            this.nowReadMode = this.XfileLoadMode.Mat_Set_LightTex;
 
         }
 
@@ -822,44 +976,44 @@ class XLoader {
 
             switch (this.nowReadMode) {
 
-                case XfileLoadMode.Mat_Set_Texture:
+                case this.XfileLoadMode.Mat_Set_Texture:
                     this.nowMat.map = this.Texloader.load(this.baseDir + data);
                     break;
-                case XfileLoadMode.Mat_Set_BumpTex:
+                case this.XfileLoadMode.Mat_Set_BumpTex:
                     this.nowMat.bumpMap = this.Texloader.load(this.baseDir + data);
                     break;
-                case XfileLoadMode.Mat_Set_NormalTex:
+                case this.XfileLoadMode.Mat_Set_NormalTex:
                     this.nowMat.normalMap = this.Texloader.load(this.baseDir + data);
                     break;
-                case XfileLoadMode.Mat_Set_EmissiveTex:
+                case this.XfileLoadMode.Mat_Set_EmissiveTex:
                     this.nowMat.emissiveMap = this.Texloader.load(this.baseDir + data);
                     break;
-                case XfileLoadMode.Mat_Set_LightTex:
+                case this.XfileLoadMode.Mat_Set_LightTex:
                     this.nowMat.lightMap = this.Texloader.load(this.baseDir + data);
                     break;
-                case XfileLoadMode.Mat_Set_EnvTex:
+                case this.XfileLoadMode.Mat_Set_EnvTex:
                     this.nowMat.envMap = this.Texloader.load(this.baseDir + data);
                     break;
             }
 
         }
 
-        this.nowReadMode = XfileLoadMode.Mat_Set;
-        this.endLineCount++;    //}しかないつぎの行をとばす。改行のない詰まったデータが来たらどうしようね
+        this.nowReadMode = this.XfileLoadMode.Mat_Set;
+        this.endLineCount++; //}しかないつぎの行をとばす。改行のない詰まったデータが来たらどうしようね
         this.elementLv--;
 
     }
     ////////////////////////////////////////////////
     readBoneInit(line) {
 
-        this.nowReadMode = XfileLoadMode.Weit_init;
+        this.nowReadMode = this.XfileLoadMode.Weit_init;
         this.BoneInf = new XboneInf();
 
     }
 
     readBoneName(line) {
         //ボーン名称
-        this.nowReadMode = XfileLoadMode.Weit_IndexLength;
+        this.nowReadMode = this.XfileLoadMode.Weit_IndexLength;
         this.BoneInf.boneName = line.substr(1, line.length - 3);
         this.BoneInf.BoneIndex = this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.length;
         this.nowReaded = 0;
@@ -868,7 +1022,7 @@ class XLoader {
 
     readBoneVertexLength(line) {
         //ボーンに属する頂点数
-        this.nowReadMode = XfileLoadMode.Weit_Read_Index;
+        this.nowReadMode = this.XfileLoadMode.Weit_Read_Index;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
 
@@ -879,7 +1033,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength || line.indexOf(";") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Weit_Read_Value;
+            this.nowReadMode = this.XfileLoadMode.Weit_Read_Value;
             this.nowReaded = 0;
 
         }
@@ -893,7 +1047,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength || line.indexOf(";") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Weit_Read_Matrx;
+            this.nowReadMode = this.XfileLoadMode.Weit_Read_Matrx;
 
         }
 
@@ -908,23 +1062,23 @@ class XLoader {
         this.BoneInf.OffsetMatrix = new THREE.Matrix4();
         this.BoneInf.OffsetMatrix.getInverse(this.BoneInf.initMatrix);
         this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.push(this.BoneInf);
-        this.nowReadMode = XfileLoadMode.Element;
+        this.nowReadMode = this.XfileLoadMode.Element;
 
     }
     //////////////
     readandCreateAnimationSet(line) {
 
         this.frameStartLv = this.elementLv;
-        this.nowReadMode = XfileLoadMode.Anim_init;
+        this.nowReadMode = this.XfileLoadMode.Anim_init;
 
-        this.nowAnimationSetName = line.substr(13, line.length - 14).trim();    //13ってのは　AnimationSet  の文字数。 14は AnimationSet に末尾の  { を加えて、14
+        this.nowAnimationSetName = line.substr(13, line.length - 14).trim(); //13ってのは　AnimationSet  の文字数。 14は AnimationSet に末尾の  { を加えて、14
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName] = [];
 
     }
 
     readAndCreateAnimation(line) {
         //アニメーション構造開始。
-        this.nowFrameName = line.substr(10, line.length - 11).trim();    //10ってのは　Animations  の文字数。 11は Animations に末尾の  { を加えて、11
+        this.nowFrameName = line.substr(10, line.length - 11).trim(); //10ってのは　Animations  の文字数。 11は Animations に末尾の  { を加えて、11
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName] = new XAnimationInfo();
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].animeName = this.nowFrameName;
         this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].FrameStartLv = this.frameStartLv;
@@ -996,7 +1150,7 @@ class XLoader {
                 tmpM.makeTranslation(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
                 this.keyInfo.matrix.multiply(tmpM);
                 break;
-            //case 3: this.keyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
+                //case 3: this.keyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
             case 4:
                 this.ParseMatrixData(this.keyInfo.matrix, data2);
                 break;
@@ -1014,7 +1168,7 @@ class XLoader {
         this.nowReaded++;
         if (this.nowReaded >= this.tgtLength || line.indexOf(";;;") > -1) {
 
-            this.nowReadMode = XfileLoadMode.Anim_init
+            this.nowReadMode = this.XfileLoadMode.Anim_init
 
         }
 
@@ -1096,7 +1250,9 @@ class XLoader {
                 const BoneDics_Name = [];
                 for (let m = 0; m < keys.length; m++) {
 
-                    if (this.loadingXdata.FrameInfo_Raw[keys[m]].FrameStartLv <= this.loadingXdata.FrameInfo_Raw[nowFrameName].FrameStartLv && nowFrameName != keys[m]) { continue; }
+                    if (this.loadingXdata.FrameInfo_Raw[keys[m]].FrameStartLv <= this.loadingXdata.FrameInfo_Raw[nowFrameName].FrameStartLv && nowFrameName != keys[m]) {
+                        continue;
+                    }
 
                     const b = new THREE.Bone();
                     b.name = keys[m];
@@ -1197,8 +1353,7 @@ class XLoader {
                 mesh.add(putBones[0]);
                 mesh.bind(skeleton);
 
-            }
-            else {
+            } else {
 
                 mesh = new THREE.Mesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
 
@@ -1273,10 +1428,12 @@ class XLoader {
 
     finalproc() {
 
-        setTimeout(() => { this.onLoad(this.loadingXdata) }, 1);
+        setTimeout(() => {
+            this.onLoad(this.loadingXdata)
+        }, 1);
 
     }
 
 };
 
-THREE.XLoader.IsUvYReverse = true;
+// export { XLoader };

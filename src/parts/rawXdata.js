@@ -1,6 +1,4 @@
 
-import * as XAnimationObj from './XAnimationObj'
-
 export default class Xdata {
 
     constructor() {

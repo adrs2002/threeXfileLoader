@@ -1,5 +1,4 @@
 
-// text file Reading Mode
 export default XfileLoadMode = {
 
     none: -1,
@@ -40,6 +39,6 @@ export default XfileLoadMode = {
     Anim_Reading: 1002,
     Anim_KeyValueTypeRead: 1003,
     Anim_KeyValueLength: 1004,
-    Anime_ReadKeyFrame: 1005
+    Anime_ReadKeyFrame: 1005, 
     
 };
