@@ -128,6 +128,11 @@ export default class XLoader {
 
         //現在読み出し中のフレームの階層構造。
         this.frameHierarchie = [];
+        this.Hierarchies = {};
+        this.HieStack = [];
+        this.currentObject = {};
+
+
         this.endLineCount = 0;
         this.geometry = null;
 
@@ -267,15 +272,86 @@ export default class XLoader {
         this.loadingXdata = new Xdata();
 
         // 返ってきたデータを行ごとに分解
-        this.lines = this.data.split("\n");
+        // this.lines = this.data.split("\n");
+
+        // 階層構造分解
+        let added = 0;
+        let endRead = 16; // 先頭16文字は固定
+        this.Hierarchies.children = [];
+
+        const refObj = this.HierarchieParse(this.Hierarchies, endRead);
+
         this.mainloop();
 
     }
+
+    HierarchieParse(_parent, _end) {
+        let endRead = _end;
+        while (true) {
+            const find1 = this.data.indexOf('{', endRead) + 1;
+            const findEnd = this.data.indexOf('}', endRead);
+            const findNext = this.data.indexOf('{', find1) + 1;
+            if (find1 > -1 && findEnd > find1) {
+                const currentObject = {};
+                currentObject.children = [];
+                const nameData = this.data.substr(endRead, find1 - endRead - 1).trim();
+
+                const word = nameData.split(/ /g);
+                if (word.length > 0) {
+                    currentObject.type = word[0];
+                    if (word.length >= 2) {
+                        currentObject.name = word[1];
+                    } else {
+                        currentObject.name = word[0] + this.Hierarchies.children.length;
+                    }
+                } else {
+                    currentObject.name = nameData;
+                    currentObject.type = "";
+                }
+
+                if (currentObject.type == "Animation") {
+                    currentObject.data = this.data.substr(findNext, findEnd - findNext).trim();
+                    const refs = this.HierarchieParse(currentObject, findEnd + 1);
+                    endRead = this.data.indexOf('}', findEnd + 1) + 1;
+                    currentObject.children = refs.parent.children;
+                } else {
+                    const DataEnder = this.data.lastIndexOf(';', findNext);
+                    if (DataEnder < findNext) {
+                        currentObject.data = this.data.substr(find1, DataEnder - find1).trim();
+                    }
+                    if (findEnd < findNext) {
+                        // 子階層なし。クローズ   
+                        endRead = findEnd + 1;
+                    } else {
+                        // 子階層あり
+                        const nextStart = Math.max(DataEnder + 1, find1);
+                        const refs = this.HierarchieParse(currentObject, nextStart);
+                        endRead = refs.end;
+                        currentObject.children = refs.parent.children;
+                    }
+                }
+                _parent.children.push(currentObject);
+            } else {
+                endRead = find1 === -1 ? this.data.length : findEnd + 1;
+                break;
+            }
+        }
+
+        return {
+            parent: _parent,
+            end: endRead
+        };
+    }
+
 
     mainloop() {
 
         let EndFlg = false;
 
+
+
+
+        /*
         //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
         for (let i = 0; i < 100; i++) {
 
@@ -295,6 +371,7 @@ export default class XLoader {
             }
 
         }
+        */
 
         if (!EndFlg) {
             setTimeout(() => {
