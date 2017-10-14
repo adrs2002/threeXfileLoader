@@ -278,9 +278,8 @@ export default class XLoader {
         let added = 0;
         let endRead = 16; // 先頭16文字は固定
         this.Hierarchies.children = [];
-
-        const refObj = this.HierarchieParse(this.Hierarchies, endRead);
-
+        this.HierarchieParse(this.Hierarchies, endRead);
+        this.currentObject = this.Hierarchies.children.shift();
         this.mainloop();
 
     }
@@ -291,7 +290,7 @@ export default class XLoader {
             const find1 = this.data.indexOf('{', endRead) + 1;
             const findEnd = this.data.indexOf('}', endRead);
             const findNext = this.data.indexOf('{', find1) + 1;
-            if (find1 > -1 && findEnd > find1) {
+            if (find1 > 0 && findEnd > find1) {
                 const currentObject = {};
                 currentObject.children = [];
                 const nameData = this.data.substr(endRead, find1 - endRead - 1).trim();
@@ -312,14 +311,12 @@ export default class XLoader {
                 if (currentObject.type == "Animation") {
                     currentObject.data = this.data.substr(findNext, findEnd - findNext).trim();
                     const refs = this.HierarchieParse(currentObject, findEnd + 1);
-                    endRead = this.data.indexOf('}', findEnd + 1) + 1;
+                    endRead = refs.end;
                     currentObject.children = refs.parent.children;
                 } else {
-                    const DataEnder = this.data.lastIndexOf(';', findNext);
-                    if (DataEnder < findNext) {
-                        currentObject.data = this.data.substr(find1, DataEnder - find1).trim();
-                    }
-                    if (findEnd < findNext) {
+                    const DataEnder = this.data.lastIndexOf(';', findNext > 0 ? Math.min(findNext, findEnd) : findEnd);
+                    currentObject.data = this.data.substr(find1, DataEnder - find1).trim();
+                    if (findNext <= 0 || findEnd < findNext) {
                         // 子階層なし。クローズ   
                         endRead = findEnd + 1;
                     } else {
@@ -330,6 +327,7 @@ export default class XLoader {
                         currentObject.children = refs.parent.children;
                     }
                 }
+                currentObject.parent = _parent;
                 _parent.children.push(currentObject);
             } else {
                 endRead = find1 === -1 ? this.data.length : findEnd + 1;
@@ -348,7 +346,25 @@ export default class XLoader {
 
         let EndFlg = false;
 
-
+        while (true) {
+            if (this.currentObject.children.length > 0) {
+                this.currentObject = this.currentObject.children.shift();
+                console.log('processing ' + this.currentObject.name);
+                break;
+            } else {
+                if (this.currentObject.parent) {
+                    this.currentObject = this.currentObject.parent;
+                } else {
+                    EndFlg = true;
+                    this.readFinalize();
+                    setTimeout(() => {
+                        this.animationFinalize()
+                    }, 1);
+                    //this.onLoad(this.loadingXdata);
+                    break;
+                }
+            }
+        }
 
 
         /*
