@@ -37,6 +37,9 @@ export default class XLoader {
     // コンストラクタ
     constructor(manager, Texloader, _zflg) {
 
+        this.debug = true;
+
+        /*
         this.XfileLoadMode = {
 
             none: -1,
@@ -80,6 +83,7 @@ export default class XLoader {
             Anime_ReadKeyFrame: 1005,
 
         };
+        */
 
         this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
         this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
@@ -87,9 +91,8 @@ export default class XLoader {
 
         this.url = "";
         this.baseDir = "";
-        // this.XfileLoadMode = this.XfileLoadMode;
         // 現在の行読み込みもーど
-        this.nowReadMode = this.XfileLoadMode.none;
+        // this.nowReadMode = this.XfileLoadMode.none;
 
         this.nowAnimationKeyType = 4;
 
@@ -146,6 +149,10 @@ export default class XLoader {
 
         this.IsUvYReverse = true;
 
+        this.Geometrys = [];
+        this.Animations = [];
+
+        this.currentGeo = null;
 
     }
 
@@ -344,28 +351,7 @@ export default class XLoader {
 
     mainloop() {
 
-        let EndFlg = false;
-
-        while (true) {
-            if (this.currentObject.children.length > 0) {
-                this.currentObject = this.currentObject.children.shift();
-                console.log('processing ' + this.currentObject.name);
-                break;
-            } else {
-                if (this.currentObject.parent) {
-                    this.currentObject = this.currentObject.parent;
-                } else {
-                    EndFlg = true;
-                    this.readFinalize();
-                    setTimeout(() => {
-                        this.animationFinalize()
-                    }, 1);
-                    //this.onLoad(this.loadingXdata);
-                    break;
-                }
-            }
-        }
-
+        this.mainProc();
 
         /*
         //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
@@ -389,14 +375,302 @@ export default class XLoader {
         }
         */
 
-        if (!EndFlg) {
+        if (this.currentObject.parent) {
+            this.currentObject = this.currentObject.parent;
             setTimeout(() => {
-                this.mainloop()
+                console.log(' == break === ');
+                this.mainloop();
             }, 1);
+        } else {
+            EndFlg = true;
+            this.readFinalize();
+            setTimeout(() => {
+                this.animationFinalize()
+            }, 1);
+            //this.onLoad(this.loadingXdata);
+            break;
         }
 
     }
 
+    mainProc() {
+
+        let EndFlg = false;
+
+        while (true) {
+            if (this.currentObject.children.length > 0) {
+                this.currentObject = this.currentObject.children.shift();
+                if (this.debug) {
+                    console.log('processing ' + this.currentObject.name);
+                }
+
+                switch (this.currentObject.type) {
+                    case "template":
+                        break;
+
+                    case "FRAME":
+                        this.setFrame();
+                        break;
+
+                    case "FrameTransformMatrix":
+                        this.setFrameTransformMatrix();
+                        break;
+
+                    case "Mesh":
+                        this.setMesh();
+                        this.mainProc();
+                        this.Geometrys.push(this.currentGeo);
+                        break;
+
+                    case "MeshNormals":
+                        this.setMeshNormals();
+                        break;
+
+                    case "MeshTextureCoords":
+                        this.setMeshTextureCoords();
+                        break;
+
+                    case "VertexDuplicationIndices":
+                        //イラネ
+                        break;
+
+                    case "MeshMaterialList":
+                        this.setMeshMaterialList();
+                        break;
+
+                    case "Material":
+                        this.setMaterial();
+                    break;
+                }
+            }
+        }
+
+    }
+
+
+    getParentName(_obj) {
+        if (_obj.parent) {
+            if (_obj.parent.name) {
+                return _obj.parent.name;
+            } else {
+                return this.getParent(_obj.parent);
+            }
+        } else {
+            return "";
+        }
+    }
+
+    setFrame() {
+        this.nowFrameName = this.currentObject.name.trim();
+        this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
+        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
+        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].ParentName = this.getParentName(this.currentObject).trim();
+        this.frameHierarchie.push(this.nowFrameName);
+    }
+
+    setFrameTransformMatrix() {
+        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
+        this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, this.currentObject.data);
+    }
+
+    setMesh() {
+        this.currentGeo = {};
+        this.currentGeo.name = this.currentObject.name.trim();
+        this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
+        this.currentGeo.VertexSetedBoneCount = [];
+        this.currentGeo.Geometry = new THREE.Geometry();
+        this.currentGeo.Materials = [];
+
+        // 1行目は総頂点数。
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        while (true) {
+            switch (mode) {
+                case 0: //vertex
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalV = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === -1) {
+                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                            mode = 1;
+                            mode_local = 0;
+                        }
+                        this.readVertex1(this.currentObject.data.substr(endRead, find - endRead));
+                        endRead = find + 1;
+                    }
+                    break;
+
+                case 1: // vertexIndexes
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalFace = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === -1) {
+                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                            mode = 2;
+                            mode_local = 0;
+                        }
+                        this.readFace1(this.currentObject.data.substr(endRead, find - endRead));
+                        endRead = find + 1;
+                    }
+                    break;
+            }
+            if(endRead >= this.currentObject.data.length ){break;}
+        }
+    }
+
+    readInt1(start) {
+        const find = this.currentObject.data.indexOf(';', start);
+        return {
+            refI: parseInt(this.currentObject.data.substr(start, find - start)),
+            endRead: find + 1
+        };
+    }
+
+    readVertex1(line) {
+        //頂点が確定
+        const data = line.substr(0, line.length - 2).split(";");
+        this.currentGeo.Geometry.vertices.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
+        //頂点を作りながら、Skin用構造も作成してしまおう
+        this.currentGeo.Geometry.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
+        this.currentGeo.Geometry.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
+        this.currentGeo.VertexSetedBoneCount.push(0);
+    }
+
+    readFace1(line) {
+        // 面に属する頂点数,頂点の配列内index という形で入っている
+        const data = line.substr(2, line.length - 4).split(",");
+        if (this.zflg) {
+            this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
+        } else {
+            this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1], 10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
+        }
+    }
+
+    setMeshNormals() {
+        this.currentGeo.normalVectors = [];
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        while (true) {
+            switch (mode) {
+                case 0: //vertex
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalV = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {                        
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === -1) {
+                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                            mode = 2;
+                            mode_local = 0;
+                        }
+                        const line = this.currentObject.data.substr(endRead, find - endRead);
+                        const data = line.split(";");
+                        this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
+                        endRead = find + 1;
+                    }
+                    break;
+            }
+            if(endRead >= this.currentObject.data.length ){break;}
+        }
+    }
+
+    setMeshTextureCoords() {
+        this.tmpUvArray = [];
+        this.currentGeo.faceVertexUvs[0] = [];
+
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        while (true) {
+            switch (mode) {
+                case 0: //vertex
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalV = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === -1) {
+                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                            mode = 2;
+                            mode_local = 0;
+                        }
+                        const line = this.currentObject.data.substr(endRead, find - endRead);
+                        const data = line.split(";");
+                        if (this.IsUvYReverse) {
+                            this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
+                        } else {
+                            this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
+                        }
+                    }
+                    break;
+            }
+            if(endRead >= this.currentObject.data.length ){break;}
+        }
+        //UV読み込み完了。メッシュにUVを割り当てる
+        this.currentGeo.faceVertexUvs[0] = [];
+        for (var m = 0; m < this.currentGeo.faces.length; m++) {
+            this.currentGeo.faceVertexUvs[0][m] = [];
+            this.currentGeo.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.faces[m].a]);
+            this.currentGeo.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.faces[m].b]);
+            this.currentGeo.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.faces[m].c]);
+
+        }
+        this.currentGeo.uvsNeedUpdate = true;
+    }
+
+    setMeshMaterialList() {
+        let endRead = 0;
+        let mode = 0;
+        let mode_local = 0;
+        let readCount = 0;
+        while (true) {
+            if (mode_local < 2) {
+                const refO = this.readInt1(0);
+                totalV = refO.refI;
+                endRead = refO.endRead;
+                mode_local++;
+                readCount = 0;
+            } else {
+                let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                if (find === -1) {
+                    find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                    mode = 3;
+                    mode_local = 0;
+                }
+                const line = this.currentObject.data.substr(endRead, find - endRead);
+                const data = line.split(";");
+                this.currentGeo.faces[readCount].materialIndex = parseInt(line);
+                readCount++;
+            }
+            if(endRead >= this.currentObject.data.length || mode >= 3){break;}
+        }
+    }
+
+    setMaterial(){
+
+    }
+
+    /////////////////// old logic /////////////////
 
 
     //Xファイル解析メイン
