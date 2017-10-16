@@ -113,15 +113,9 @@ export default class XLoader {
         this.putMatLength = 0;
         this.nowMat = null;
 
-        //ボーン情報格納用
-        this.BoneInf = new XboneInf();
-
         //UV割り出し用の一時保管配列
         this.tmpUvArray = [];
 
-        //放線割り出し用の一時保管配列
-        //Xfileの放線は「頂点ごと」で入っているので、それを面に再計算して割り当てる。面倒だと思う
-        this.normalVectors = [];
         this.facesNormal = [];
 
         //現在読み出し中のフレーム名称
@@ -387,8 +381,6 @@ export default class XLoader {
             setTimeout(() => {
                 this.animationFinalize()
             }, 1);
-            //this.onLoad(this.loadingXdata);
-            break;
         }
 
     }
@@ -408,7 +400,7 @@ export default class XLoader {
                     case "template":
                         break;
 
-                    case "FRAME":
+                    case "Frame":
                         this.setFrame();
                         break;
 
@@ -417,13 +409,24 @@ export default class XLoader {
                         break;
 
                     case "Mesh":
-                        this.setMesh();
-                        this.mainProc();
-                        this.Geometrys.push(this.currentGeo);
+                        if (this.currentGeo != null && this.currentGeo.name) {
+                            this.Geometrys.push(this.currentGeo);
+                        }
+                        this.currentGeo = {};
+                        this.currentGeo.name = this.currentObject.name.trim();
+                        this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
+                        this.currentGeo.VertexSetedBoneCount = [];
+                        this.currentGeo.Geometry = new THREE.Geometry();
+                        this.currentGeo.Materials = [];
+                        this.currentGeo.normalVectors = [];
+                        //ボーン情報格納用
+                        this.currentGeo.BoneInf = new XboneInf();
+
+                        this.readVertexDatas();
                         break;
 
                     case "MeshNormals":
-                        this.setMeshNormals();
+                        this.readVertexDatas();
                         break;
 
                     case "MeshTextureCoords":
@@ -440,8 +443,10 @@ export default class XLoader {
 
                     case "Material":
                         this.setMaterial();
-                    break;
+                        break;
                 }
+            } else {
+                break;
             }
         }
 
@@ -453,7 +458,7 @@ export default class XLoader {
             if (_obj.parent.name) {
                 return _obj.parent.name;
             } else {
-                return this.getParent(_obj.parent);
+                return this.getParentName(_obj.parent);
             }
         } else {
             return "";
@@ -473,13 +478,7 @@ export default class XLoader {
         this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, this.currentObject.data);
     }
 
-    setMesh() {
-        this.currentGeo = {};
-        this.currentGeo.name = this.currentObject.name.trim();
-        this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
-        this.currentGeo.VertexSetedBoneCount = [];
-        this.currentGeo.Geometry = new THREE.Geometry();
-        this.currentGeo.Materials = [];
+    readVertexDatas() {
 
         // 1行目は総頂点数。
         let endRead = 0;
@@ -487,45 +486,69 @@ export default class XLoader {
         let totalFace = 0;
         let mode = 0;
         let mode_local = 0
+        let maxLength = 0;
+        let nowReadedLine = 0;
         while (true) {
-            switch (mode) {
-                case 0: //vertex
-                    if (mode_local === 0) {
-                        const refO = this.readInt1(0);
-                        totalV = refO.refI;
-                        endRead = refO.endRead;
-                        mode_local = 1;
-                    } else {
-                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
-                        if (find === -1) {
-                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
-                            mode = 1;
-                            mode_local = 0;
-                        }
-                        this.readVertex1(this.currentObject.data.substr(endRead, find - endRead));
-                        endRead = find + 1;
-                    }
-                    break;
+            let changeMode = false;
+            if (mode_local === 0) {
+                const refO = this.readInt1(endRead);
+                totalV = refO.refI;
+                endRead = refO.endRead;
+                mode_local = 1;
+                nowReadedLine = 0;
+                maxLength = this.currentObject.data.indexOf(';;', endRead) + 1;
+                if (maxLength <= 0) {
+                    maxLength = this.currentObject.data.length
+                }
+            } else {
+                let find = 0;
+                switch (mode) {
+                    case 0:
+                        find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        break;
+                    case 1:
+                        find = this.currentObject.data.indexOf(';,', endRead) + 1;
+                        break;
+                }
 
-                case 1: // vertexIndexes
-                    if (mode_local === 0) {
-                        const refO = this.readInt1(0);
-                        totalFace = refO.refI;
-                        endRead = refO.endRead;
-                        mode_local = 1;
-                    } else {
-                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
-                        if (find === -1) {
-                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
-                            mode = 2;
-                            mode_local = 0;
+                if (find === 0 || find > maxLength) {
+                    find = maxLength;
+                    mode_local = 0;
+                    changeMode = true;
+                }
+
+                switch (this.currentObject.type) {
+                    case "Mesh":
+                        switch (mode) {
+                            case 0:
+                                this.readVertex1(this.currentObject.data.substr(endRead, find - endRead));
+                                break;
+                            case 1:
+                                this.readFace1(this.currentObject.data.substr(endRead, find - endRead));
+                                break;
                         }
-                        this.readFace1(this.currentObject.data.substr(endRead, find - endRead));
-                        endRead = find + 1;
-                    }
-                    break;
+                        break;
+
+                    case "MeshNormals":
+                        switch (mode) {
+                            case 0:
+                                this.readNormalVector1(this.currentObject.data.substr(endRead, find - endRead));
+                                break;
+                            case 1:
+                                this.readNormalFace1(this.currentObject.data.substr(endRead, find - endRead), nowReadedLine);
+                                break;
+                        }
+                        break;
+                }
+                endRead = find + 1;
+                nowReadedLine++;
+                if (changeMode) {
+                    mode++;
+                }
             }
-            if(endRead >= this.currentObject.data.length ){break;}
+            if (endRead >= this.currentObject.data.length) {
+                break;
+            }
         }
     }
 
@@ -539,7 +562,7 @@ export default class XLoader {
 
     readVertex1(line) {
         //頂点が確定
-        const data = line.substr(0, line.length - 2).split(";");
+        const data = line.trim().substr(0, line.length - 2).split(";");
         this.currentGeo.Geometry.vertices.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
         //頂点を作りながら、Skin用構造も作成してしまおう
         this.currentGeo.Geometry.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
@@ -549,7 +572,7 @@ export default class XLoader {
 
     readFace1(line) {
         // 面に属する頂点数,頂点の配列内index という形で入っている
-        const data = line.substr(2, line.length - 4).split(",");
+        const data = line.trim().substr(2, line.length - 4).split(",");
         if (this.zflg) {
             this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
         } else {
@@ -557,43 +580,34 @@ export default class XLoader {
         }
     }
 
-    setMeshNormals() {
-        this.currentGeo.normalVectors = [];
-        let endRead = 0;
-        let totalV = 0;
-        let totalFace = 0;
-        let mode = 0;
-        let mode_local = 0
-        while (true) {
-            switch (mode) {
-                case 0: //vertex
-                    if (mode_local === 0) {
-                        const refO = this.readInt1(0);
-                        totalV = refO.refI;
-                        endRead = refO.endRead;
-                        mode_local = 1;
-                    } else {                        
-                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
-                        if (find === -1) {
-                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
-                            mode = 2;
-                            mode_local = 0;
-                        }
-                        const line = this.currentObject.data.substr(endRead, find - endRead);
-                        const data = line.split(";");
-                        this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
-                        endRead = find + 1;
-                    }
-                    break;
-            }
-            if(endRead >= this.currentObject.data.length ){break;}
-        }
+    readNormalVector1(line) {
+        const data = line.trim().substr(0, line.length - 2).split(";");
+        this.currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
+        // this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
     }
 
-    setMeshTextureCoords() {
-        this.tmpUvArray = [];
-        this.currentGeo.faceVertexUvs[0] = [];
+    readNormalFace1(line, nowReaded) {
 
+        const data = line.trim().substr(2, line.length - 4).split(",");
+
+        let nowID = parseInt(data[0], 10);
+        const v1 = this.currentGeo.normalVectors[nowID];
+        nowID = parseInt(data[1], 10);
+        const v2 = this.currentGeo.normalVectors[nowID];
+        nowID = parseInt(data[2], 10);
+        const v3 = this.currentGeo.normalVectors[nowID];
+
+        //研究中
+        if (this.zflg) {
+            this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v3, v2, v1];
+        } else {
+            this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v1, v2, v3];
+        }
+
+    }
+
+
+    setMeshNormals() {
         let endRead = 0;
         let totalV = 0;
         let totalFace = 0;
@@ -615,27 +629,68 @@ export default class XLoader {
                             mode_local = 0;
                         }
                         const line = this.currentObject.data.substr(endRead, find - endRead);
-                        const data = line.split(";");
+                        const data = line.trim().split(";");
+                        this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
+                        endRead = find + 1;
+                    }
+                    break;
+            }
+            if (endRead >= this.currentObject.data.length) {
+                break;
+            }
+        }
+    }
+
+    setMeshTextureCoords() {
+        this.tmpUvArray = [];
+        this.currentGeo.Geometry.faceVertexUvs = [];
+        this.currentGeo.Geometry.faceVertexUvs.push([]);
+
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        while (true) {
+            switch (mode) {
+                case 0: //vertex
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalV = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === 0) {
+                            find = this.currentObject.data.length;
+                            mode = 2;
+                            mode_local = 0;
+                        }
+                        const line = this.currentObject.data.substr(endRead, find - endRead);
+                        const data = line.trim().split(";");
                         if (this.IsUvYReverse) {
                             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
                         } else {
                             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
                         }
+                        endRead = find + 1;
                     }
                     break;
             }
-            if(endRead >= this.currentObject.data.length ){break;}
+            if (endRead >= this.currentObject.data.length) {
+                break;
+            }
         }
         //UV読み込み完了。メッシュにUVを割り当てる
-        this.currentGeo.faceVertexUvs[0] = [];
-        for (var m = 0; m < this.currentGeo.faces.length; m++) {
-            this.currentGeo.faceVertexUvs[0][m] = [];
-            this.currentGeo.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.faces[m].a]);
-            this.currentGeo.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.faces[m].b]);
-            this.currentGeo.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.faces[m].c]);
+        this.currentGeo.Geometry.faceVertexUvs[0] = [];
+        for (var m = 0; m < this.currentGeo.Geometry.faces.length; m++) {
+            this.currentGeo.Geometry.faceVertexUvs[0][m] = [];
+            this.currentGeo.Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.Geometry.faces[m].a]);
+            this.currentGeo.Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.Geometry.faces[m].b]);
+            this.currentGeo.Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.Geometry.faces[m].c]);
 
         }
-        this.currentGeo.uvsNeedUpdate = true;
+        this.currentGeo.Geometry.uvsNeedUpdate = true;
     }
 
     setMeshMaterialList() {
@@ -645,29 +700,116 @@ export default class XLoader {
         let readCount = 0;
         while (true) {
             if (mode_local < 2) {
-                const refO = this.readInt1(0);
-                totalV = refO.refI;
+                const refO = this.readInt1(endRead);
                 endRead = refO.endRead;
                 mode_local++;
                 readCount = 0;
             } else {
-                let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                let find = this.currentObject.data.indexOf(';', endRead);
                 if (find === -1) {
-                    find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                    find = this.currentObject.data.length;
                     mode = 3;
                     mode_local = 0;
                 }
                 const line = this.currentObject.data.substr(endRead, find - endRead);
-                const data = line.split(";");
-                this.currentGeo.faces[readCount].materialIndex = parseInt(line);
-                readCount++;
+                const data = line.trim().split(",");
+                for (let i = 0; i < data.length; i++) {
+                    this.currentGeo.Geometry.faces[i].materialIndex = parseInt(data[i]);
+                }
+                endRead = this.currentObject.data.length;
             }
-            if(endRead >= this.currentObject.data.length || mode >= 3){break;}
+            if (endRead >= this.currentObject.data.length || mode >= 3) {
+                break;
+            }
         }
     }
 
-    setMaterial(){
+    setMaterial() {
+        const nowMat = new THREE.MeshPhongMaterial({
+            color: Math.random() * 0xffffff
+        });
 
+        if (this.zflg) {
+            nowMat.side = THREE.BackSide;
+        } else {
+            nowMat.side = THREE.FrontSide;
+        }
+        nowMat.side = THREE.FrontSide;
+
+        nowMat.name = this.currentObject.name;
+
+        let endRead = 0;
+        // １つめの[;;]まで＝Diffuse
+        let find = this.currentObject.data.indexOf(';;', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        const data = line.trim().split(";");
+        nowMat.color.r = parseFloat(data[0]);
+        nowMat.color.g = parseFloat(data[1]);
+        nowMat.color.b = parseFloat(data[2]);
+
+        // 次の [;]まで＝反射率
+        endRead = find + 2;
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        nowMat.shininess = parseFloat(line);
+
+        // 次の[;;]まで＝反射光？
+        endRead = find + 1;
+        find = this.currentObject.data.indexOf(';;', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data2 = line.trim().split(";");
+        nowMat.specular.r = parseFloat(data2[0]);
+        nowMat.specular.g = parseFloat(data2[1]);
+        nowMat.specular.b = parseFloat(data2[2]);
+
+        // 次の [;]まで＝発光色?
+        endRead = find + 2;
+        find = this.currentObject.data.indexOf(';;', endRead);
+        if (find === -1) {
+            find = this.currentObject.data.length;
+        }
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data3 = line.trim().split(";");
+        nowMat.emissive.r = parseFloat(data3[0]);
+        nowMat.emissive.g = parseFloat(data3[1]);
+        nowMat.emissive.b = parseFloat(data3[2]);
+
+        // 子階層処理
+        let localObject = null;
+        while (true) {
+            if (this.currentObject.children.length > 0) {
+                localObject = this.currentObject.children.shift();
+                if (this.debug) {
+                    console.log('processing ' + localObject.name);
+                }
+                switch (localObject.type) {
+                    case "TextureFilename":
+                        nowMat.map = this.Texloader.load(this.baseDir + localObject.data);
+                        break;
+                    case "BumpMapFilename":
+                        nowMat.bumpMap = this.Texloader.load(this.baseDir + localObject.data);
+                        break;
+                    case "NormalMapFilename":
+                        nowMat.normalMap = this.Texloader.load(this.baseDir + localObject.data);
+                        break;
+                    case "EmissiveMapFilename":
+                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + localObject.data);
+                        break;
+                    case "LightMapFilename":
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + localObject.data);
+                        break;
+                    case "LightMapFilename":
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + localObject.data);
+                        break;
+
+                        // nowMat.envMap = this.Texloader.load(this.baseDir + data);
+                }
+            } else {
+                break;
+            }
+        }
+
+        this.currentGeo.Materials.push(nowMat);
     }
 
     /////////////////// old logic /////////////////
@@ -1100,80 +1242,12 @@ export default class XLoader {
 
     }
 
-    beginMeshNormal(line) {
-
-        this.nowReadMode = this.XfileLoadMode.Normal_V_init;
-        this.normalVectors = [];
-        this.facesNormal = [];
-
-    }
-
-    readMeshNormalCount(line) {
-
-        this.nowReadMode = this.XfileLoadMode.Normal_V_Read;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-
-    }
-
-    readMeshNormalVertex(line) {
-
-        var data = line.split(";");
-        this.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-
-            this.nowReadMode = this.XfileLoadMode.Normal_I_init;
-            return true;
-
-        }
-
-        return false;
-
-    }
 
     readMeshNormalIndexCount(line) {
 
         this.nowReadMode = this.XfileLoadMode.Normal_I_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
-
-    }
-
-    readMeshNormalIndex(line) {
-        //やっとNomal放線が決まる
-        const data = line.substr(2, line.length - 4).split(",");
-        //indexに対応したベクトルを一度取得＆加算し、単位ベクトルを得てからセットする
-
-        let nowID = parseInt(data[0], 10);
-        const v1 = new THREE.Vector3(this.normalVectors[nowID][0], this.normalVectors[nowID][1], this.normalVectors[nowID][2]);
-        nowID = parseInt(data[1], 10);
-        const v2 = new THREE.Vector3(this.normalVectors[nowID][0], this.normalVectors[nowID][1], this.normalVectors[nowID][2]);
-        nowID = parseInt(data[2], 10);
-        const v3 = new THREE.Vector3(this.normalVectors[nowID][0], this.normalVectors[nowID][1], this.normalVectors[nowID][2]);
-
-        //研究中
-        if (this.zflg) {
-
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].vertexNormals = [v3, v2, v1];
-
-        } else {
-
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].vertexNormals = [v1, v2, v3];
-
-        }
-        //this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].vertexNormals = [v1, v2, v3];
-
-        this.facesNormal.push(v1.normalize());
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-
-            this.nowReadMode = this.XfileLoadMode.Element;
-            return true;
-
-        }
-
-        return false;
 
     }
 
