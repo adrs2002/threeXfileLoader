@@ -133,7 +133,6 @@ class XLoader {
         this.matReadLine = 0;
         this.putMatLength = 0;
         this.nowMat = null;
-        this.BoneInf = new XboneInf();
         this.tmpUvArray = [];
         this.facesNormal = [];
         this.nowFrameName = "";
@@ -293,7 +292,6 @@ class XLoader {
                 this.mainloop();
             }, 1);
         } else {
-            EndFlg = true;
             this.readFinalize();
             setTimeout(() => {
                 this.animationFinalize();
@@ -327,6 +325,7 @@ class XLoader {
                         this.currentGeo.Geometry = new THREE.Geometry();
                         this.currentGeo.Materials = [];
                         this.currentGeo.normalVectors = [];
+                        this.currentGeo.BoneInfs = [];
                         this.readVertexDatas();
                         break;
                     case "MeshNormals":
@@ -342,6 +341,9 @@ class XLoader {
                         break;
                     case "Material":
                         this.setMaterial();
+                        break;
+                    case "SkinWeights":
+                        this.setSkinWeights();
                         break;
                 }
             } else {
@@ -651,6 +653,38 @@ class XLoader {
             }
         }
         this.currentGeo.Materials.push(nowMat);
+    }
+    setSkinWeights() {
+        const boneInf = new XboneInf();
+        let endRead = 0;
+        let find = this.currentObject.data.indexOf(';', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        endRead = find + 1;
+        boneInf.boneName = line.substr(1, line.length - 2);
+        boneInf.BoneIndex = this.currentGeo.BoneInfs.length;
+        find = this.currentObject.data.indexOf(';', endRead);
+        endRead = find + 1;
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data = line.trim().split(",");
+        boneInf.Indeces = data;
+        endRead = find + 1;
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data2 = line.trim().split(",");
+        boneInf.Weights = data2;
+        endRead = find + 1;
+        find = this.currentObject.data.indexOf(';', endRead);
+        if (find <= 0) {
+            find = this.currentObject.data.length;
+        }
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data3 = line.trim().split(",");
+        boneInf.initMatrix = new THREE.Matrix4();
+        this.ParseMatrixData(boneInf.initMatrix, data3);
+        boneInf.OffsetMatrix = new THREE.Matrix4();
+        boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
+        this.currentGeo.BoneInfs.push(boneInf);
     }
     lineRead(line) {
         if (line.indexOf("template ") > -1) {

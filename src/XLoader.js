@@ -347,28 +347,6 @@ export default class XLoader {
 
         this.mainProc();
 
-        /*
-        //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
-        for (let i = 0; i < 100; i++) {
-
-            this.lineRead(this.lines[this.endLineCount].trim());
-            this.endLineCount++;
-
-            if (this.endLineCount >= this.lines.length - 1) {
-
-                EndFlg = true;
-                this.readFinalize();
-                setTimeout(() => {
-                    this.animationFinalize()
-                }, 1);
-                //this.onLoad(this.loadingXdata);
-                break;
-
-            }
-
-        }
-        */
-
         if (this.currentObject.parent) {
             this.currentObject = this.currentObject.parent;
             setTimeout(() => {
@@ -376,18 +354,14 @@ export default class XLoader {
                 this.mainloop();
             }, 1);
         } else {
-            EndFlg = true;
             this.readFinalize();
             setTimeout(() => {
                 this.animationFinalize()
             }, 1);
         }
-
     }
 
     mainProc() {
-
-        let EndFlg = false;
 
         while (true) {
             if (this.currentObject.children.length > 0) {
@@ -419,8 +393,7 @@ export default class XLoader {
                         this.currentGeo.Geometry = new THREE.Geometry();
                         this.currentGeo.Materials = [];
                         this.currentGeo.normalVectors = [];
-                        //ボーン情報格納用
-                        this.currentGeo.BoneInf = new XboneInf();
+                        this.currentGeo.BoneInfs = [];
 
                         this.readVertexDatas();
                         break;
@@ -444,6 +417,11 @@ export default class XLoader {
                     case "Material":
                         this.setMaterial();
                         break;
+
+                    case "SkinWeights":
+                        this.setSkinWeights();
+                        break;
+
                 }
             } else {
                 break;
@@ -811,6 +789,52 @@ export default class XLoader {
 
         this.currentGeo.Materials.push(nowMat);
     }
+
+    setSkinWeights() {
+        const boneInf = new XboneInf();
+
+        let endRead = 0;
+        // １つめの[;]まで＝name
+        let find = this.currentObject.data.indexOf(';', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        endRead = find + 1;
+
+        boneInf.boneName = line.substr(1, line.length - 2);
+        boneInf.BoneIndex = this.currentGeo.BoneInfs.length;
+
+        // ボーンに属する頂点数。今はいらない
+        find = this.currentObject.data.indexOf(';', endRead);
+        endRead = find + 1;
+
+        // 次の[;]まで：このボーンに属する頂点Index
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data = line.trim().split(",");
+        boneInf.Indeces = data;
+        endRead = find + 1;
+        //  次の[;]まで：それぞれの頂点に対するweight
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data2 = line.trim().split(",");
+        boneInf.Weights = data2;
+        endRead = find + 1;
+        // 次の[;] or 最後まで：ini matrix
+        find = this.currentObject.data.indexOf(';', endRead);
+        if (find <= 0) {
+            find = this.currentObject.data.length;
+        }
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data3 = line.trim().split(",");
+        boneInf.initMatrix = new THREE.Matrix4();
+        this.ParseMatrixData(boneInf.initMatrix, data3);
+
+        boneInf.OffsetMatrix = new THREE.Matrix4();
+        boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
+        this.currentGeo.BoneInfs.push(boneInf);
+
+    }
+
+
 
     /////////////////// old logic /////////////////
 
