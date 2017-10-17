@@ -128,6 +128,7 @@ export default class XLoader {
         this.Hierarchies = {};
         this.HieStack = [];
         this.currentObject = {};
+        this.currentFrame = {};
 
 
         this.endLineCount = 0;
@@ -143,11 +144,12 @@ export default class XLoader {
 
         this.IsUvYReverse = true;
 
-        this.Geometrys = [];
+        this.Meshes = [];
         this.Animations = [];
 
         this.currentGeo = null;
-
+        this.currentAnime = null;
+        this.currentAnimeFrames = null;
     }
 
     //読み込み開始命令部
@@ -384,7 +386,7 @@ export default class XLoader {
 
                     case "Mesh":
                         if (this.currentGeo != null && this.currentGeo.name) {
-                            this.Geometrys.push(this.currentGeo);
+                            this.MakeOutputGeometry();
                         }
                         this.currentGeo = {};
                         this.currentGeo.name = this.currentObject.name.trim();
@@ -394,7 +396,9 @@ export default class XLoader {
                         this.currentGeo.Materials = [];
                         this.currentGeo.normalVectors = [];
                         this.currentGeo.BoneInfs = [];
-
+                        this.currentGeo.putBones = [];
+                        this.currentGeo.baseFrame = this.currentFrame;
+                        this.makeBoneFromCurrentFrame();
                         this.readVertexDatas();
                         break;
 
@@ -422,8 +426,29 @@ export default class XLoader {
                         this.setSkinWeights();
                         break;
 
+                    case "AnimationSet":
+                        this.currentAnime = {};
+                        this.currentAnime.name = this.currentObject.name.trim();
+                        this.currentAnime.AnimeFrames = [];
+                        break;
+
+                    case "Animation":
+                        this.currentAnimeFrames = {};
+                        this.currentAnimeFrames.boneName = this.currentObject.data.trim();
+                        break;
+
+                    case "AnimationKey":
+                        this.readAnimationKey();
+                        break;
                 }
             } else {
+                if (this.currentObject.parent && !this.currentObject.parent.parent) {
+                    // ルート＝親が１つだけの場合
+                    if (this.currentGeo != null && this.currentGeo.name) {
+                        this.MakeOutputGeometry();
+                        this.currentGeo = {};
+                    }
+                }
                 break;
             }
         }
@@ -445,15 +470,45 @@ export default class XLoader {
 
     setFrame() {
         this.nowFrameName = this.currentObject.name.trim();
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].ParentName = this.getParentName(this.currentObject).trim();
+        this.currentFrame = {};
+        this.currentFrame.name = this.nowFrameName;
+        this.currentFrame.children = [];
+        if (this.currentObject.parent && this.currentObject.parent.name) {
+            this.currentFrame.parentName = this.currentObject.parent.name;
+        }
         this.frameHierarchie.push(this.nowFrameName);
+        this.HieStack[this.nowFrameName] = this.currentFrame;
     }
 
     setFrameTransformMatrix() {
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
-        this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, this.currentObject.data);
+        // this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
+        // this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, this.currentObject.data);
+
+        this.currentFrame.FrameTransformMatrix = new THREE.Matrix4();
+        const data = this.currentObject.data.split(",");
+        this.ParseMatrixData(this.currentFrame.FrameTransformMatrix, data);
+        if (this.currentGeo != null && this.currentGeo.putBones) {
+            this.makeBoneFromCurrentFrame();
+        }
+    }
+
+    makeBoneFromCurrentFrame() {
+        const b = new THREE.Bone();
+        b.name = this.currentFrame.name;
+        b.applyMatrix(this.currentFrame.FrameTransformMatrix);
+        b.matrixWorld = b.matrix;
+        b.FrameTransformMatrix = this.currentFrame.FrameTransformMatrix;
+        this.currentGeo.putBones.push(b);
+
+        if (this.currentFrame.parentName) {
+            for (let i = 0; i < this.currentGeo.putBones.length; i++) {
+                if (this.currentGeo.putBones[i].name === this.currentFrame.parentName) {
+                    this.currentGeo.putBones[i].add(this.currentGeo.putBones[this.currentGeo.putBones.length - 1]);
+                    break;
+                }
+            }
+        }
+
     }
 
     readVertexDatas() {
@@ -810,13 +865,17 @@ export default class XLoader {
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
         const data = line.trim().split(",");
-        boneInf.Indeces = data;
+        for (let i = 0; i < data.length; i++) {
+            boneInf.Indeces.push(parseInt(data[i]));
+        }
         endRead = find + 1;
         //  次の[;]まで：それぞれの頂点に対するweight
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
         const data2 = line.trim().split(",");
-        boneInf.Weights = data2;
+        for (let i = 0; i < data2.length; i++) {
+            boneInf.Weights.push(parseFloat(data2[i]));
+        }
         endRead = find + 1;
         // 次の[;] or 最後まで：ini matrix
         find = this.currentObject.data.indexOf(';', endRead);
@@ -834,6 +893,178 @@ export default class XLoader {
 
     }
 
+    MakeOutputGeometry() {
+
+        //１つのmesh終了
+        this.currentGeo.Geometry.computeBoundingBox();
+        this.currentGeo.Geometry.computeBoundingSphere();
+
+        this.currentGeo.Geometry.verticesNeedUpdate = true;
+        this.currentGeo.Geometry.normalsNeedUpdate = true;
+        this.currentGeo.Geometry.colorsNeedUpdate = true;
+        this.currentGeo.Geometry.uvsNeedUpdate = true;
+        this.currentGeo.Geometry.groupsNeedUpdate = true;
+
+        //ボーンの階層構造を作成する
+
+        let mesh = null;
+        const bufferGeometry = new THREE.BufferGeometry();
+
+        if (this.currentGeo.BoneInfs.length > 0) {
+            /*
+            if (this.loadingXdata.FrameInfo_Raw[putBones[0].name].children.length === 0 && nowFrameName != putBones[0].name) {
+
+                putBones[0].add(putBones[1]);
+                putBones[0].zflag = _zflg;
+
+            }
+            */
+            //さらに、ウェイトとボーン情報を紐付ける
+
+            for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
+
+                //ウェイトのあるボーンであることが確定。頂点情報を割り当てる
+                for (let vi = 0; vi < this.currentGeo.BoneInfs[bi].Indeces.length; vi++) {
+                    //頂点へ割り当て
+                    const nowVertexID = this.currentGeo.BoneInfs[bi].Indeces[vi];
+                    const nowVal = this.currentGeo.BoneInfs[bi].Weights[vi];
+
+                    switch (this.currentGeo.VertexSetedBoneCount[nowVertexID]) {
+                        case 0:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
+                            break;
+                        case 1:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
+                            break;
+                        case 2:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].z = nowVal;
+                            break;
+                        case 3:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
+                            break;
+                    }
+                    this.currentGeo.VertexSetedBoneCount[nowVertexID]++;
+                }
+            }
+
+            for (let sk = 0; sk < this.currentGeo.Materials.length; sk++) {
+                this.currentGeo.Materials[sk].skinning = true;
+            }
+
+            mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.currentGeo.Geometry), new THREE.MultiMaterial(this.currentGeo.Materials));
+            const skeleton = new THREE.Skeleton(this.currentGeo.putBones);
+            mesh.add(this.currentGeo.putBones[0]);
+            mesh.bind(skeleton);
+
+        } else {
+            mesh = new THREE.Mesh(this.currentGeo.Geometry, new THREE.MultiMaterial(this.currentGeo.Materials));
+        }
+
+        mesh.name = this.currentGeo.name;
+        this.Meshes.push(mesh);
+    }
+
+
+    readAnimationKey() {
+        this.currentAnimeFrames.keyFrames = [];
+
+        let endRead = 0;
+        // １つめの[;]まで＝keyType
+        let find = this.currentObject.data.indexOf(';', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        endRead = find + 1;
+
+        this.currentAnimeFrames.keyType = parseInt(line);
+        // 2つめの[;]まで＝キー数。スルー
+        find = this.currentObject.data.indexOf(';', endRead);
+        endRead = find + 1;
+        // 本番 [;;,] で1キーとなる
+        line = this.currentObject.data.substr(endRead);
+        const data = line.trim().split(";;,");
+        for (let i = 0; i < data.length; i++) {
+            //内部。さらに[;]でデータが分かれる
+            const data2 = data[i].split(";");
+
+            const keyInfo = new XKeyFrameInfo();
+            keyInfo.matrix = new THREE.Matrix4();
+            keyInfo.Frame = parseInt(data2[0]);
+
+            this.ParseMatrixData(keyInfo.matrix, data2[2].split(","));
+
+            keyInfo.index = this.currentAnimeFrames.keyFrames.length;
+            keyInfo.time = keyInfo.Frame;
+            this.currentAnimeFrames.keyFrames.push(keyInfo);
+
+            /* matrixキー以外の対応が必要になったら、下を考える。
+            //すでにそのキーが宣言済みでないかどうかを探す
+            //要素によるキー飛ばし（回転：0&20フレーム、　移動:0&10&20フレーム　で、10フレーム時に回転キーがない等 )には対応できていない
+            if (this.currentAnimeFrames.keyType != 4) {
+                for (var mm = 0; mm < this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length; mm++) {
+                    if (this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames[mm].Frame === nowKeyframe) {
+                        this.keyInfo = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames[mm];
+                        frameFound = true;
+                        break;
+                    }
+                }
+            }
+                        switch (this.nowAnimationKeyType) {
+
+                case 0:
+                    tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2])));
+                    this.keyInfo.matrix.multiply(tmpM);
+                    break;
+                case 1:
+                    tmpM.makeScale(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
+                    this.keyInfo.matrix.multiply(tmpM);
+                    break;
+                case 2:
+                    tmpM.makeTranslation(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
+                    this.keyInfo.matrix.multiply(tmpM);
+                    break;
+                    //case 3: this.keyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
+                case 4:
+                    this.ParseMatrixData(this.keyInfo.matrix, data2);
+                    break;
+            }
+
+            if (!frameFound) {
+                this.keyInfo.index = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length;
+                this.keyInfo.time =  this.keyInfo.Frame;
+                this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.push(this.keyInfo);
+            }
+
+            this.nowReaded++;
+            if (this.nowReaded >= this.tgtLength || line.indexOf(";;;") > -1) {
+                this.nowReadMode = this.XfileLoadMode.Anim_init                
+            }
+            */
+        }
+
+        this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
+    }
+
+
+    readFinalize() {
+        //アニメーション情報、ボーン構造などを再構築
+
+        //一部ソフトウェアからの出力用（DirectXとOpenGLのZ座標系の違い）に、鏡面処理を行う
+        /* まだ
+        if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
+            for (let i = 0; i < this.loadingXdata.FrameInfo.length; i++) {
+                if (this.loadingXdata.FrameInfo[i].parent == null) {
+                    this.loadingXdata.FrameInfo[i].zflag = this.zflg;
+                    if (this.zflg) {
+                        this.loadingXdata.FrameInfo[i].scale.set(-1, 1, 1);
+                    }
+                }
+            }
+        }
+        */
+    }
 
 
     /////////////////// old logic /////////////////
@@ -1640,7 +1871,7 @@ export default class XLoader {
     }
     ////////////////////////
 
-    readFinalize() {
+    _readFinalize() {
         //アニメーション情報、ボーン構造などを再構築
         this.loadingXdata.FrameInfo = [];
         const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
@@ -1689,7 +1920,7 @@ export default class XLoader {
 
 
     //最終的に出力されるTHREE.js型のメッシュ（Mesh)を確定する
-    MakeOutputGeometry(nowFrameName, _zflg) {
+    _MakeOutputGeometry(nowFrameName, _zflg) {
 
         if (this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
 

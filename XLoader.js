@@ -141,6 +141,7 @@ class XLoader {
         this.Hierarchies = {};
         this.HieStack = [];
         this.currentObject = {};
+        this.currentFrame = {};
         this.endLineCount = 0;
         this.geometry = null;
         this.loadingXdata = null;
@@ -150,9 +151,11 @@ class XLoader {
         this.data = null;
         this.onLoad = null;
         this.IsUvYReverse = true;
-        this.Geometrys = [];
+        this.Meshes = [];
         this.Animations = [];
         this.currentGeo = null;
+        this.currentAnime = null;
+        this.currentAnimeFrames = null;
     }
     load(_arg, onLoad, onProgress, onError) {
         const loader = new THREE.FileLoader(this.manager);
@@ -316,7 +319,7 @@ class XLoader {
                         break;
                     case "Mesh":
                         if (this.currentGeo != null && this.currentGeo.name) {
-                            this.Geometrys.push(this.currentGeo);
+                            this.MakeOutputGeometry();
                         }
                         this.currentGeo = {};
                         this.currentGeo.name = this.currentObject.name.trim();
@@ -326,6 +329,9 @@ class XLoader {
                         this.currentGeo.Materials = [];
                         this.currentGeo.normalVectors = [];
                         this.currentGeo.BoneInfs = [];
+                        this.currentGeo.putBones = [];
+                        this.currentGeo.baseFrame = this.currentFrame;
+                        this.makeBoneFromCurrentFrame();
                         this.readVertexDatas();
                         break;
                     case "MeshNormals":
@@ -345,8 +351,26 @@ class XLoader {
                     case "SkinWeights":
                         this.setSkinWeights();
                         break;
+                    case "AnimationSet":
+                        this.currentAnime = {};
+                        this.currentAnime.name = this.currentObject.name.trim();
+                        this.currentAnime.AnimeFrames = [];
+                        break;
+                    case "Animation":
+                        this.currentAnimeFrames = {};
+                        this.currentAnimeFrames.boneName = this.currentObject.data.trim();
+                        break;
+                    case "AnimationKey":
+                        this.readAnimationKey();
+                        break;
                 }
             } else {
+                if (this.currentObject.parent && !this.currentObject.parent.parent) {
+                    if (this.currentGeo != null && this.currentGeo.name) {
+                        this.MakeOutputGeometry();
+                        this.currentGeo = {};
+                    }
+                }
                 break;
             }
         }
@@ -364,14 +388,38 @@ class XLoader {
     }
     setFrame() {
         this.nowFrameName = this.currentObject.name.trim();
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].ParentName = this.getParentName(this.currentObject).trim();
+        this.currentFrame = {};
+        this.currentFrame.name = this.nowFrameName;
+        this.currentFrame.children = [];
+        if (this.currentObject.parent && this.currentObject.parent.name) {
+            this.currentFrame.parentName = this.currentObject.parent.name;
+        }
         this.frameHierarchie.push(this.nowFrameName);
+        this.HieStack[this.nowFrameName] = this.currentFrame;
     }
     setFrameTransformMatrix() {
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
-        this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, this.currentObject.data);
+        this.currentFrame.FrameTransformMatrix = new THREE.Matrix4();
+        const data = this.currentObject.data.split(",");
+        this.ParseMatrixData(this.currentFrame.FrameTransformMatrix, data);
+        if (this.currentGeo != null && this.currentGeo.putBones) {
+            this.makeBoneFromCurrentFrame();
+        }
+    }
+    makeBoneFromCurrentFrame() {
+        const b = new THREE.Bone();
+        b.name = this.currentFrame.name;
+        b.applyMatrix(this.currentFrame.FrameTransformMatrix);
+        b.matrixWorld = b.matrix;
+        b.FrameTransformMatrix = this.currentFrame.FrameTransformMatrix;
+        this.currentGeo.putBones.push(b);
+        if (this.currentFrame.parentName) {
+            for (let i = 0; i < this.currentGeo.putBones.length; i++) {
+                if (this.currentGeo.putBones[i].name === this.currentFrame.parentName) {
+                    this.currentGeo.putBones[i].add(this.currentGeo.putBones[this.currentGeo.putBones.length - 1]);
+                    break;
+                }
+            }
+        }
     }
     readVertexDatas() {
         let endRead = 0;
@@ -667,12 +715,16 @@ class XLoader {
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
         const data = line.trim().split(",");
-        boneInf.Indeces = data;
+        for (let i = 0; i < data.length; i++) {
+            boneInf.Indeces.push(parseInt(data[i]));
+        }
         endRead = find + 1;
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
         const data2 = line.trim().split(",");
-        boneInf.Weights = data2;
+        for (let i = 0; i < data2.length; i++) {
+            boneInf.Weights.push(parseFloat(data2[i]));
+        }
         endRead = find + 1;
         find = this.currentObject.data.indexOf(';', endRead);
         if (find <= 0) {
@@ -685,6 +737,80 @@ class XLoader {
         boneInf.OffsetMatrix = new THREE.Matrix4();
         boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
         this.currentGeo.BoneInfs.push(boneInf);
+    }
+    MakeOutputGeometry() {
+        this.currentGeo.Geometry.computeBoundingBox();
+        this.currentGeo.Geometry.computeBoundingSphere();
+        this.currentGeo.Geometry.verticesNeedUpdate = true;
+        this.currentGeo.Geometry.normalsNeedUpdate = true;
+        this.currentGeo.Geometry.colorsNeedUpdate = true;
+        this.currentGeo.Geometry.uvsNeedUpdate = true;
+        this.currentGeo.Geometry.groupsNeedUpdate = true;
+        let mesh = null;
+        const bufferGeometry = new THREE.BufferGeometry();
+        if (this.currentGeo.BoneInfs.length > 0) {
+            for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
+                for (let vi = 0; vi < this.currentGeo.BoneInfs[bi].Indeces.length; vi++) {
+                    const nowVertexID = this.currentGeo.BoneInfs[bi].Indeces[vi];
+                    const nowVal = this.currentGeo.BoneInfs[bi].Weights[vi];
+                    switch (this.currentGeo.VertexSetedBoneCount[nowVertexID]) {
+                        case 0:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
+                            break;
+                        case 1:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
+                            break;
+                        case 2:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].z = nowVal;
+                            break;
+                        case 3:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = bi;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
+                            break;
+                    }
+                    this.currentGeo.VertexSetedBoneCount[nowVertexID]++;
+                }
+            }
+            for (let sk = 0; sk < this.currentGeo.Materials.length; sk++) {
+                this.currentGeo.Materials[sk].skinning = true;
+            }
+            mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.currentGeo.Geometry), new THREE.MultiMaterial(this.currentGeo.Materials));
+            const skeleton = new THREE.Skeleton(this.currentGeo.putBones);
+            mesh.add(this.currentGeo.putBones[0]);
+            mesh.bind(skeleton);
+        } else {
+            mesh = new THREE.Mesh(this.currentGeo.Geometry, new THREE.MultiMaterial(this.currentGeo.Materials));
+        }
+        mesh.name = this.currentGeo.name;
+        this.Meshes.push(mesh);
+    }
+    readAnimationKey() {
+        this.currentAnimeFrames.keyFrames = [];
+        let endRead = 0;
+        let find = this.currentObject.data.indexOf(';', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        endRead = find + 1;
+        this.currentAnimeFrames.keyType = parseInt(line);
+        find = this.currentObject.data.indexOf(';', endRead);
+        endRead = find + 1;
+        line = this.currentObject.data.substr(endRead);
+        const data = line.trim().split(";;,");
+        for (let i = 0; i < data.length; i++) {
+            const data2 = data[i].split(";");
+            const keyInfo = new XKeyFrameInfo();
+            keyInfo.matrix = new THREE.Matrix4();
+            keyInfo.Frame = parseInt(data2[0]);
+            this.ParseMatrixData(keyInfo.matrix, data2[2].split(","));
+            keyInfo.index = this.currentAnimeFrames.keyFrames.length;
+            keyInfo.time = keyInfo.Frame;
+            this.currentAnimeFrames.keyFrames.push(keyInfo);
+        }
+        this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
+    }
+    readFinalize() {
     }
     lineRead(line) {
         if (line.indexOf("template ") > -1) {
@@ -1193,7 +1319,7 @@ class XLoader {
             this.nowReadMode = this.XfileLoadMode.Anim_init;
         }
     }
-    readFinalize() {
+    _readFinalize() {
         this.loadingXdata.FrameInfo = [];
         const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
         for (let i = 0; i < keys.length; i++) {
@@ -1219,7 +1345,7 @@ class XLoader {
             parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
             parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
     }
-    MakeOutputGeometry(nowFrameName, _zflg) {
+    _MakeOutputGeometry(nowFrameName, _zflg) {
         if (this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
             this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingBox();
             this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingSphere();
