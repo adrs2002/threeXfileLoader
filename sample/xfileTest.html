@@ -122,9 +122,9 @@
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/SSR06_Born2.x', true, true], function (object) {
-                for (var i = 0; i < object.FrameInfo.length; i++) {
-                    Models.push(object.FrameInfo[i]);
+            loader.load(['content/SSR06_Born2.x', false, true], function (object) {
+                for (var i = 0; i < object.models.length; i++) {
+                    Models.push(object.models[i]);
                     scene.add(Models[i]);
 
                     //create animations

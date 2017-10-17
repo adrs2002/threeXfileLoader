@@ -331,7 +331,9 @@ export default class XLoader {
                     }
                 }
                 currentObject.parent = _parent;
-                _parent.children.push(currentObject);
+                if (currentObject.type != "template") {
+                    _parent.children.push(currentObject);
+                }
             } else {
                 endRead = find1 === -1 ? this.data.length : findEnd + 1;
                 break;
@@ -347,14 +349,18 @@ export default class XLoader {
 
     mainloop() {
 
-        this.mainProc();
+        const timeoutFlag = this.mainProc();
 
         if (this.currentObject.parent) {
             this.currentObject = this.currentObject.parent;
-            setTimeout(() => {
-                console.log(' == break === ');
+            if (timeoutFlag) {
+                setTimeout(() => {
+                    console.log(' == break === ');
+                    this.mainloop();
+                }, 1);
+            } else {
                 this.mainloop();
-            }, 1);
+            }
         } else {
             this.readFinalize();
             setTimeout(() => {
@@ -364,14 +370,13 @@ export default class XLoader {
     }
 
     mainProc() {
-
+        let ref_timeout = false;
         while (true) {
             if (this.currentObject.children.length > 0) {
                 this.currentObject = this.currentObject.children.shift();
                 if (this.debug) {
                     console.log('processing ' + this.currentObject.name);
                 }
-
                 switch (this.currentObject.type) {
                     case "template":
                         break;
@@ -400,6 +405,7 @@ export default class XLoader {
                         this.currentGeo.baseFrame = this.currentFrame;
                         this.makeBoneFromCurrentFrame();
                         this.readVertexDatas();
+                        ref_timeout = true;
                         break;
 
                     case "MeshNormals":
@@ -439,6 +445,7 @@ export default class XLoader {
 
                     case "AnimationKey":
                         this.readAnimationKey();
+                        ref_timeout = true;
                         break;
                 }
             } else {
@@ -452,8 +459,8 @@ export default class XLoader {
                 break;
             }
         }
-
-    }
+        return ref_timeout;
+    }   
 
 
     getParentName(_obj) {
@@ -815,24 +822,27 @@ export default class XLoader {
                 if (this.debug) {
                     console.log('processing ' + localObject.name);
                 }
+                const fileName = localObject.data.substr(1, localObject.data.length - 2);
                 switch (localObject.type) {
                     case "TextureFilename":
-                        nowMat.map = this.Texloader.load(this.baseDir + localObject.data);
+                        nowMat.map = this.Texloader.load(this.baseDir + fileName);
                         break;
                     case "BumpMapFilename":
-                        nowMat.bumpMap = this.Texloader.load(this.baseDir + localObject.data);
+                        nowMat.bumpMap = this.Texloader.load(this.baseDir + fileName);
+                        nowMat.bumpScale = 0.05;
                         break;
                     case "NormalMapFilename":
-                        nowMat.normalMap = this.Texloader.load(this.baseDir + localObject.data);
+                        nowMat.normalMap = this.Texloader.load(this.baseDir + fileName);
+                        nowMat.normalScale = new THREE.Vector2(2, 2);
                         break;
                     case "EmissiveMapFilename":
-                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + localObject.data);
+                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + fileName);
                         break;
                     case "LightMapFilename":
-                        nowMat.lightMap = this.Texloader.load(this.baseDir + localObject.data);
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
                         break;
                     case "LightMapFilename":
-                        nowMat.lightMap = this.Texloader.load(this.baseDir + localObject.data);
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
                         break;
 
                         // nowMat.envMap = this.Texloader.load(this.baseDir + data);
@@ -2125,7 +2135,10 @@ export default class XLoader {
     finalproc() {
 
         setTimeout(() => {
-            this.onLoad(this.loadingXdata)
+            this.onLoad({
+                models: this.Meshes,
+                animations: this.Animations
+            })
         }, 1);
 
     }
