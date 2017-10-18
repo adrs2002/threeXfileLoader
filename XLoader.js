@@ -30,6 +30,7 @@ class XAnimationInfo {
         this.animeName = "";
         this.boneName = "";
         this.targetBone = null;
+        this.keyType = 4;
         this.frameStartLv = 0;
         this.keyFrames = [];
         this.InverseMx = null;
@@ -124,12 +125,6 @@ class XLoader {
         this.zflg = (_zflg === undefined) ? false : _zflg;
         this.url = "";
         this.baseDir = "";
-        this.nowAnimationKeyType = 4;
-        this.tgtLength = 0;
-        this.nowReaded = 0;
-        this.elementLv = 0;
-        this.geoStartLv = Number.MAX_VALUE;
-        this.frameStartLv = Number.MAX_VALUE;
         this.matReadLine = 0;
         this.putMatLength = 0;
         this.nowMat = null;
@@ -143,7 +138,6 @@ class XLoader {
         this.currentObject = {};
         this.currentFrame = {};
         this.endLineCount = 0;
-        this.geometry = null;
         this.loadingXdata = null;
         this.lines = null;
         this.keyInfo = null;
@@ -153,6 +147,7 @@ class XLoader {
         this.IsUvYReverse = true;
         this.Meshes = [];
         this.Animations = [];
+        this.AnimTicksPerSecond = 30;
         this.currentGeo = null;
         this.currentAnime = null;
         this.currentAnimeFrames = null;
@@ -365,7 +360,7 @@ class XLoader {
                         this.currentAnime.AnimeFrames = [];
                         break;
                     case "Animation":
-                        this.currentAnimeFrames = {};
+                        this.currentAnimeFrames = new XAnimationInfo();
                         this.currentAnimeFrames.boneName = this.currentObject.data.trim();
                         break;
                     case "AnimationKey":
@@ -801,7 +796,6 @@ class XLoader {
         this.Meshes.push(mesh);
     }
     readAnimationKey() {
-        this.currentAnimeFrames.keyFrames = [];
         let endRead = 0;
         let find = this.currentObject.data.indexOf(';', endRead);
         let line = this.currentObject.data.substr(endRead, find - endRead);
@@ -824,6 +818,43 @@ class XLoader {
         this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
     }
     readFinalize() {
+    }
+    animationFinalize() {
+        if (this.currentAnime > 0) {
+            this.animationFinalize_step();
+        }
+        this.finalproc();
+    }
+    animationFinalize_step() {
+        const i = this.nowReaded;
+        let tgtModel = null;
+        for (let m = 0; m < this.loadingXdata.FrameInfo.length; m++) {
+            const keys2 = Object.keys(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
+            if (this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]][keys2[0]].boneName == this.loadingXdata.FrameInfo[m].name) {
+                tgtModel = this.loadingXdata.FrameInfo[m];
+            }
+        }
+        if (tgtModel != null) {
+            this.loadingXdata.XAnimationObj[i] = new XAnimationObj();
+            this.loadingXdata.XAnimationObj[i].fps = this.loadingXdata.AnimTicksPerSecond;
+            this.loadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
+            this.loadingXdata.XAnimationObj[i].make(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
+        }
+    }
+    finalproc() {
+        setTimeout(() => {
+            this.onLoad({
+                models: this.Meshes,
+                animations: this.Animations
+            });
+        }, 1);
+    }
+    ParseMatrixData(targetMatrix, data) {
+        targetMatrix.set(
+            parseFloat(data[0]), parseFloat(data[4]), parseFloat(data[8]), parseFloat(data[12]),
+            parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
+            parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
+            parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
     }
     lineRead(line) {
         if (line.indexOf("template ") > -1) {
@@ -1351,13 +1382,6 @@ class XLoader {
             }
         }
     }
-    ParseMatrixData(targetMatrix, data) {
-        targetMatrix.set(
-            parseFloat(data[0]), parseFloat(data[4]), parseFloat(data[8]), parseFloat(data[12]),
-            parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
-            parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
-            parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
-    }
     _MakeOutputGeometry(nowFrameName, _zflg) {
         if (this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
             this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingBox();
@@ -1447,7 +1471,7 @@ class XLoader {
             this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry = null;
         }
     }
-    animationFinalize() {
+    _animationFinalize() {
         this.animeKeyNames = Object.keys(this.loadingXdata.AnimationSetInfo);
         if (this.animeKeyNames != null && this.animeKeyNames.length > 0) {
             this.nowReaded = 0;
@@ -1457,7 +1481,7 @@ class XLoader {
             this.finalproc();
         }
     }
-    animationFinalize_step() {
+    _animationFinalize_step() {
         const i = this.nowReaded;
         let tgtModel = null;
         for (let m = 0; m < this.loadingXdata.FrameInfo.length; m++) {
@@ -1480,7 +1504,7 @@ class XLoader {
             this.animationFinalize_step();
         }
     }
-    finalproc() {
+    _finalproc() {
         setTimeout(() => {
             this.onLoad({
                 models: this.Meshes,

@@ -91,23 +91,6 @@ export default class XLoader {
 
         this.url = "";
         this.baseDir = "";
-        // 現在の行読み込みもーど
-        // this.nowReadMode = this.XfileLoadMode.none;
-
-        this.nowAnimationKeyType = 4;
-
-        //Xファイルは要素宣言→要素数→要素実体　という並びになるので、要素数宣言を保持する
-        this.tgtLength = 0;
-        this.nowReaded = 0;
-
-        // { の数（ファイル先頭から
-        this.elementLv = 0;
-
-        //ジオメトリ読み込み開始時の　{ の数
-        this.geoStartLv = Number.MAX_VALUE;
-
-        //Frame読み込み開始時の　{ の数
-        this.frameStartLv = Number.MAX_VALUE;
 
         this.matReadLine = 0;
         this.putMatLength = 0;
@@ -132,7 +115,6 @@ export default class XLoader {
 
 
         this.endLineCount = 0;
-        this.geometry = null;
 
         this.loadingXdata = null;
         this.lines = null;
@@ -146,6 +128,7 @@ export default class XLoader {
 
         this.Meshes = [];
         this.Animations = [];
+        this.AnimTicksPerSecond = 30;
 
         this.currentGeo = null;
         this.currentAnime = null;
@@ -439,7 +422,9 @@ export default class XLoader {
                         break;
 
                     case "Animation":
-                        this.currentAnimeFrames = {};
+                        // this.currentAnimeFrames = {};
+                        // this.currentAnimeFrames.boneName = this.currentObject.data.trim();
+                        this.currentAnimeFrames = new XAnimationInfo();
                         this.currentAnimeFrames.boneName = this.currentObject.data.trim();
                         break;
 
@@ -460,7 +445,7 @@ export default class XLoader {
             }
         }
         return ref_timeout;
-    }   
+    }
 
 
     getParentName(_obj) {
@@ -921,16 +906,7 @@ export default class XLoader {
         const bufferGeometry = new THREE.BufferGeometry();
 
         if (this.currentGeo.BoneInfs.length > 0) {
-            /*
-            if (this.loadingXdata.FrameInfo_Raw[putBones[0].name].children.length === 0 && nowFrameName != putBones[0].name) {
-
-                putBones[0].add(putBones[1]);
-                putBones[0].zflag = _zflg;
-
-            }
-            */
             //さらに、ウェイトとボーン情報を紐付ける
-
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
 
                 //ウェイトのあるボーンであることが確定。頂点情報を割り当てる
@@ -980,7 +956,6 @@ export default class XLoader {
 
 
     readAnimationKey() {
-        this.currentAnimeFrames.keyFrames = [];
 
         let endRead = 0;
         // １つめの[;]まで＝keyType
@@ -1074,6 +1049,52 @@ export default class XLoader {
             }
         }
         */
+    }
+
+    //ガチ最終・アニメーションを独自形式→Three.jsの標準に変換する
+    animationFinalize() {
+
+        if (this.currentAnime > 0) {
+            this.animationFinalize_step();
+        }
+        this.finalproc();
+    }
+
+    animationFinalize_step() {
+
+        for(let i =0; i < this.currentAnime.AnimeFrames.length;i++){
+
+            this.loadingXdata.XAnimationObj[i] = new XAnimationObj();
+            this.loadingXdata.XAnimationObj[i].fps = this.loadingXdata.AnimTicksPerSecond;
+            this.loadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
+            this.loadingXdata.XAnimationObj[i].make(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
+
+        }
+     
+    }
+
+    finalproc() {
+
+        setTimeout(() => {
+            this.onLoad({
+                models: this.Meshes,
+                animations: this.Animations
+            })
+        }, 1);
+
+    }
+
+    ///
+
+    /////////////////////////////////
+    ParseMatrixData(targetMatrix, data) {
+
+        targetMatrix.set(
+            parseFloat(data[0]), parseFloat(data[4]), parseFloat(data[8]), parseFloat(data[12]),
+            parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
+            parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
+            parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
+
     }
 
 
@@ -1917,17 +1938,6 @@ export default class XLoader {
 
     }
 
-    /////////////////////////////////
-    ParseMatrixData(targetMatrix, data) {
-
-        targetMatrix.set(
-            parseFloat(data[0]), parseFloat(data[4]), parseFloat(data[8]), parseFloat(data[12]),
-            parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
-            parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
-            parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
-
-    }
-
 
     //最終的に出力されるTHREE.js型のメッシュ（Mesh)を確定する
     _MakeOutputGeometry(nowFrameName, _zflg) {
@@ -2074,7 +2084,7 @@ export default class XLoader {
     }
 
     //ガチ最終・アニメーションを独自形式→Three.jsの標準に変換する
-    animationFinalize() {
+    _animationFinalize() {
 
         this.animeKeyNames = Object.keys(this.loadingXdata.AnimationSetInfo);
         if (this.animeKeyNames != null && this.animeKeyNames.length > 0) {
@@ -2092,7 +2102,7 @@ export default class XLoader {
     }
 
 
-    animationFinalize_step() {
+    _animationFinalize_step() {
 
         const i = this.nowReaded;
         const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
@@ -2132,7 +2142,7 @@ export default class XLoader {
 
     }
 
-    finalproc() {
+    _finalproc() {
 
         setTimeout(() => {
             this.onLoad({

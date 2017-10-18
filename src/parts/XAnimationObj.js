@@ -21,7 +21,7 @@ export default class XAnimationObj {
             let bone = null;
             let parent = -1;
             let baseIndex = -1;
-            
+
             for (let m = 0; m < mesh.skeleton.bones.length; m++) {
 
                 if (mesh.skeleton.bones[m].name == XAnimationInfoArray[keys[i]].boneName) {
@@ -36,13 +36,13 @@ export default class XAnimationObj {
             }
 
             hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
-        
-    }
-    
+
+        }
+
         const keys2 = Object.keys(hierarchy_tmp);
         for (let i = 0; i < keys2.length; i++) {
             this.hierarchy.push(hierarchy_tmp[i]);
-            
+
             let parentId = -1;
             for (let m = 0; m < this.hierarchy.length; m++) {
 
@@ -68,6 +68,13 @@ export default class XAnimationObj {
         refObj.name = bone;
         refObj.parent = parent;
         refObj.keys = [];
+
+        return refObj;
+
+    }
+
+    keyFrameRefactor(XAnimationInfo) {
+        const keys = [];
         for (let i = 0; i < XAnimationInfo.keyFrames.length; i++) {
 
             const keyframe = {};
@@ -77,12 +84,11 @@ export default class XAnimationObj {
             keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
             keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
             keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
-            refObj.keys.push(keyframe);
+            keys.push(keyframe);
 
         }
-
-        return refObj;
-
+        return keys;
     }
+
 
 }
