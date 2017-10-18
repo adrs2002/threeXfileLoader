@@ -347,7 +347,10 @@ export default class XLoader {
         } else {
             this.readFinalize();
             setTimeout(() => {
-                this.animationFinalize()
+                this.onLoad({
+                    models: this.Meshes,
+                    animations: this.Animations
+                })
             }, 1);
         }
     }
@@ -364,6 +367,10 @@ export default class XLoader {
                     case "template":
                         break;
 
+                    case "AnimTicksPerSecond":
+
+                        break;
+
                     case "Frame":
                         this.setFrame();
                         break;
@@ -373,9 +380,7 @@ export default class XLoader {
                         break;
 
                     case "Mesh":
-                        if (this.currentGeo != null && this.currentGeo.name) {
-                            this.MakeOutputGeometry();
-                        }
+                        this.changeRoot();
                         this.currentGeo = {};
                         this.currentGeo.name = this.currentObject.name.trim();
                         this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
@@ -416,6 +421,7 @@ export default class XLoader {
                         break;
 
                     case "AnimationSet":
+                        this.changeRoot();
                         this.currentAnime = {};
                         this.currentAnime.name = this.currentObject.name.trim();
                         this.currentAnime.AnimeFrames = [];
@@ -434,12 +440,9 @@ export default class XLoader {
                         break;
                 }
             } else {
+                // ルート＝親が１つだけの場合
                 if (this.currentObject.parent && !this.currentObject.parent.parent) {
-                    // ルート＝親が１つだけの場合
-                    if (this.currentGeo != null && this.currentGeo.name) {
-                        this.MakeOutputGeometry();
-                        this.currentGeo = {};
-                    }
+                    this.changeRoot();
                 }
                 break;
             }
@@ -447,6 +450,18 @@ export default class XLoader {
         return ref_timeout;
     }
 
+    changeRoot() {
+
+        if (this.currentGeo != null && this.currentGeo.name) {
+            this.MakeOutputGeometry();
+            this.currentGeo = {};
+        }
+        if (this.currentAnime != null && this.currentAnime.name) {
+            this.MakeOutputAnimation();
+            this.currentAnime = {};
+        }
+
+    }
 
     getParentName(_obj) {
         if (_obj.parent) {
@@ -1032,6 +1047,14 @@ export default class XLoader {
         this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
     }
 
+    MakeOutputAnimation() {
+        const animationObj = new XAnimationObj();
+        animationObj.fps = this.AnimTicksPerSecond;
+        animationObj.name = this.currentAnime.name;
+        animationObj.make(this.currentAnime.AnimeFrames);
+        this.Animations.push(animationObj);
+
+    }
 
     readFinalize() {
         //アニメーション情報、ボーン構造などを再構築
@@ -1049,39 +1072,6 @@ export default class XLoader {
             }
         }
         */
-    }
-
-    //ガチ最終・アニメーションを独自形式→Three.jsの標準に変換する
-    animationFinalize() {
-
-        if (this.currentAnime > 0) {
-            this.animationFinalize_step();
-        }
-        this.finalproc();
-    }
-
-    animationFinalize_step() {
-
-        for(let i =0; i < this.currentAnime.AnimeFrames.length;i++){
-
-            this.loadingXdata.XAnimationObj[i] = new XAnimationObj();
-            this.loadingXdata.XAnimationObj[i].fps = this.loadingXdata.AnimTicksPerSecond;
-            this.loadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
-            this.loadingXdata.XAnimationObj[i].make(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
-
-        }
-     
-    }
-
-    finalproc() {
-
-        setTimeout(() => {
-            this.onLoad({
-                models: this.Meshes,
-                animations: this.Animations
-            })
-        }, 1);
-
     }
 
     ///

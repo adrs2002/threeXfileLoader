@@ -12,7 +12,14 @@ export default class XAnimationObj {
 
     }
 
-    make(XAnimationInfoArray, mesh) {
+    make(XAnimationInfoArray) {
+        for(let i =0; i < XAnimationInfoArray.length;i++){
+            this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[i]));
+        }
+        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
+    }
+
+    _make(XAnimationInfoArray, mesh) {
 
         const keys = Object.keys(XAnimationInfoArray);
         const hierarchy_tmp = [];
@@ -65,10 +72,9 @@ export default class XAnimationObj {
     makeBonekeys(XAnimationInfo, bone, parent) {
 
         const refObj = {};
-        refObj.name = bone;
-        refObj.parent = parent;
-        refObj.keys = [];
-
+        refObj.name = XAnimationInfo.boneName;
+        refObj.parent = "";
+        refObj.keys = this.keyFrameRefactor(XAnimationInfo);
         return refObj;
 
     }

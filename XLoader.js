@@ -44,7 +44,13 @@ class XAnimationObj {
         this.length = 0;
         this.hierarchy = [];
     }
-    make(XAnimationInfoArray, mesh) {
+    make(XAnimationInfoArray) {
+        for(let i =0; i < XAnimationInfoArray.length;i++){
+            this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[i]));
+        }
+        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
+    }
+    _make(XAnimationInfoArray, mesh) {
         const keys = Object.keys(XAnimationInfoArray);
         const hierarchy_tmp = [];
         for (let i = 0; i < keys.length; i++) {
@@ -60,7 +66,7 @@ class XAnimationObj {
                 }
             }
             hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
-    }
+        }
         const keys2 = Object.keys(hierarchy_tmp);
         for (let i = 0; i < keys2.length; i++) {
             this.hierarchy.push(hierarchy_tmp[i]);
@@ -76,9 +82,13 @@ class XAnimationObj {
     }
     makeBonekeys(XAnimationInfo, bone, parent) {
         const refObj = {};
-        refObj.name = bone;
-        refObj.parent = parent;
-        refObj.keys = [];
+        refObj.name = XAnimationInfo.boneName;
+        refObj.parent = "";
+        refObj.keys = this.keyFrameRefactor(XAnimationInfo);
+        return refObj;
+    }
+    keyFrameRefactor(XAnimationInfo) {
+        const keys = [];
         for (let i = 0; i < XAnimationInfo.keyFrames.length; i++) {
             const keyframe = {};
             keyframe.time = XAnimationInfo.keyFrames[i].time * this.fps;
@@ -86,9 +96,9 @@ class XAnimationObj {
             keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
             keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
             keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
-            refObj.keys.push(keyframe);
+            keys.push(keyframe);
         }
-        return refObj;
+        return keys;
     }
 }
 
@@ -298,7 +308,10 @@ class XLoader {
         } else {
             this.readFinalize();
             setTimeout(() => {
-                this.animationFinalize();
+                this.onLoad({
+                    models: this.Meshes,
+                    animations: this.Animations
+                });
             }, 1);
         }
     }
@@ -313,6 +326,8 @@ class XLoader {
                 switch (this.currentObject.type) {
                     case "template":
                         break;
+                    case "AnimTicksPerSecond":
+                        break;
                     case "Frame":
                         this.setFrame();
                         break;
@@ -320,9 +335,7 @@ class XLoader {
                         this.setFrameTransformMatrix();
                         break;
                     case "Mesh":
-                        if (this.currentGeo != null && this.currentGeo.name) {
-                            this.MakeOutputGeometry();
-                        }
+                        this.changeRoot();
                         this.currentGeo = {};
                         this.currentGeo.name = this.currentObject.name.trim();
                         this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
@@ -355,6 +368,7 @@ class XLoader {
                         this.setSkinWeights();
                         break;
                     case "AnimationSet":
+                        this.changeRoot();
                         this.currentAnime = {};
                         this.currentAnime.name = this.currentObject.name.trim();
                         this.currentAnime.AnimeFrames = [];
@@ -370,15 +384,22 @@ class XLoader {
                 }
             } else {
                 if (this.currentObject.parent && !this.currentObject.parent.parent) {
-                    if (this.currentGeo != null && this.currentGeo.name) {
-                        this.MakeOutputGeometry();
-                        this.currentGeo = {};
-                    }
+                    this.changeRoot();
                 }
                 break;
             }
         }
         return ref_timeout;
+    }
+    changeRoot() {
+        if (this.currentGeo != null && this.currentGeo.name) {
+            this.MakeOutputGeometry();
+            this.currentGeo = {};
+        }
+        if (this.currentAnime != null && this.currentAnime.name) {
+            this.MakeOutputAnimation();
+            this.currentAnime = {};
+        }
     }
     getParentName(_obj) {
         if (_obj.parent) {
@@ -817,37 +838,14 @@ class XLoader {
         }
         this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
     }
+    MakeOutputAnimation() {
+        const animationObj = new XAnimationObj();
+        animationObj.fps = this.AnimTicksPerSecond;
+        animationObj.name = this.currentAnime.name;
+        animationObj.make(this.currentAnime.AnimeFrames);
+        this.Animations.push(animationObj);
+    }
     readFinalize() {
-    }
-    animationFinalize() {
-        if (this.currentAnime > 0) {
-            this.animationFinalize_step();
-        }
-        this.finalproc();
-    }
-    animationFinalize_step() {
-        const i = this.nowReaded;
-        let tgtModel = null;
-        for (let m = 0; m < this.loadingXdata.FrameInfo.length; m++) {
-            const keys2 = Object.keys(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
-            if (this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]][keys2[0]].boneName == this.loadingXdata.FrameInfo[m].name) {
-                tgtModel = this.loadingXdata.FrameInfo[m];
-            }
-        }
-        if (tgtModel != null) {
-            this.loadingXdata.XAnimationObj[i] = new XAnimationObj();
-            this.loadingXdata.XAnimationObj[i].fps = this.loadingXdata.AnimTicksPerSecond;
-            this.loadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
-            this.loadingXdata.XAnimationObj[i].make(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
-        }
-    }
-    finalproc() {
-        setTimeout(() => {
-            this.onLoad({
-                models: this.Meshes,
-                animations: this.Animations
-            });
-        }, 1);
     }
     ParseMatrixData(targetMatrix, data) {
         targetMatrix.set(

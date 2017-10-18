@@ -132,7 +132,7 @@
                         skeletonHelper = new THREE.SkeletonHelper(Models[i]);
                         scene.add(skeletonHelper);
 
-                        if (object.XAnimationObj !== undefined && object.XAnimationObj.length !== 0) {
+                        if (object.animations !== undefined && object.animations.length !== 0) {
                             Models[i].geometry.animations = [];
 
                             /* 
@@ -153,11 +153,11 @@
                             // ↓ that is a code for [ All animation-keyframes are connected data ].
 
                             {
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'stand', 10 * object.XAnimationObj[0].fps, 11 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'walk', 50 * object.XAnimationObj[0].fps, 80 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'dash', 140 * object.XAnimationObj[0].fps, 160 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'dashing', 160 * object.XAnimationObj[0].fps, 165 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.XAnimationObj[0], 'damage', 500 * object.XAnimationObj[0].fps, 530 * object.XAnimationObj[0].fps), Models[i].skeleton.bones));
+                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'stand', 10 * object.animations[0].fps, 11 * object.animations[0].fps), Models[i].skeleton.bones));
+                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'walk', 50 * object.animations[0].fps, 80 * object.animations[0].fps), Models[i].skeleton.bones));
+                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'dash', 140 * object.animations[0].fps, 160 * object.animations[0].fps), Models[i].skeleton.bones));
+                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'dashing', 160 * object.animations[0].fps, 165 * object.animations[0].fps), Models[i].skeleton.bones));
+                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'damage', 500 * object.animations[0].fps, 530 * object.animations[0].fps), Models[i].skeleton.bones));
 
                                 Models[i].mixer = new THREE.AnimationMixer(Models[i]);
                                 animates.push(Models[i].mixer);

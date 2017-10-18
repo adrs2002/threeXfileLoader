@@ -39319,8 +39319,11 @@ Frame Frame_SCENE_ROOT {
      34.560001;
      0.315000;0.315000;0.315000;;
      0.000000;0.000000;0.000000;;
-     TextureFilename {
-      "新UVベース.psd";
+    TextureFilename {
+       "texture/SSR06_Born2_dif.png";
+     }
+	 BumpMapFilename {
+       "texture/SSR06_Born2_bp_base.png";
      }
     }
    }
