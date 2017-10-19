@@ -133,7 +133,7 @@ class XKeyFrameInfo {
 "use strict";
 class XLoader {
     constructor(manager, Texloader, _zflg) {
-        this.debug = true;
+        this.debug = false;
         this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
         this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
         this.zflg = (_zflg === undefined) ? false : _zflg;
@@ -241,7 +241,7 @@ class XLoader {
         let endRead = 16;
         this.Hierarchies.children = [];
         this.HierarchieParse(this.Hierarchies, endRead);
-        this.currentObject = this.Hierarchies.children.shift();
+        this.currentObject = this.Hierarchies;
         this.mainloop();
     }
     HierarchieParse(_parent, _end) {
@@ -303,7 +303,7 @@ class XLoader {
             this.currentObject = this.currentObject.parent;
             if (timeoutFlag) {
                 setTimeout(() => {
-                    console.log(' == break === ');
+                    if (this.debug) {console.log(' == break === ');}
                     this.mainloop();
                 }, 1);
             } else {

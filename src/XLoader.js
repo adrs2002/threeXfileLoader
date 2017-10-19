@@ -37,7 +37,7 @@ export default class XLoader {
     // コンストラクタ
     constructor(manager, Texloader, _zflg) {
 
-        this.debug = true;
+        this.debug = false;
 
         /*
         this.XfileLoadMode = {
@@ -265,7 +265,7 @@ export default class XLoader {
         let endRead = 16; // 先頭16文字は固定
         this.Hierarchies.children = [];
         this.HierarchieParse(this.Hierarchies, endRead);
-        this.currentObject = this.Hierarchies.children.shift();
+        this.currentObject = this.Hierarchies; //.children.shift();
         this.mainloop();
 
     }
@@ -338,7 +338,7 @@ export default class XLoader {
             this.currentObject = this.currentObject.parent;
             if (timeoutFlag) {
                 setTimeout(() => {
-                    console.log(' == break === ');
+                    if (this.debug) {console.log(' == break === ');}
                     this.mainloop();
                 }, 1);
             } else {

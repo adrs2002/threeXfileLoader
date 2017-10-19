@@ -128,12 +128,13 @@
             loader.load(['content/SSR06_model.x', true, true], function (object) {
 
                 for (var i = 0; i < object.models.length; i++) {
-                    Models.push(object.models[i]);
-                    scene.add(Models[i]);
+                    Models.push(object.models[i]);                    
                 }
 
                 var loader2 = new THREE.XLoader(manager, Texloader);
                 loader2.load(['content/SSR06_anime.x', true, true], function (object2) {
+
+                    scene.add(Models[0]);
 
                     if (Models[0] instanceof THREE.SkinnedMesh) {
                         skeletonHelper = new THREE.SkeletonHelper(Models[0]);
