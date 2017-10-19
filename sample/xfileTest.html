@@ -138,10 +138,12 @@
                 var loader2 = new THREE.XLoader(manager, Texloader);
                 loader2.load(['content/SSR06_anime.x', false, true], function (object2) {
 
-
                     if (Models[0] instanceof THREE.SkinnedMesh) {
                         skeletonHelper = new THREE.SkeletonHelper(Models[0]);
                         scene.add(skeletonHelper);
+
+                        // !! important!
+                        // associate divided model and animation.
                         var animateObj = loader2.assignAnimation(Models[0]);
 
                         if (animateObj !== undefined) {
@@ -169,7 +171,7 @@
 
                             var stand = Models[0].mixer.clipAction('stand');
                             // stand.play();
-                            stand.setLoop(THREE.LoopRepeat);
+                            stand.setLoop(THREE.LoopOnce);
                             actions['stand'] = stand;
 
                             var walk = Models[0].mixer.clipAction('walk');
@@ -188,7 +190,7 @@
                             actions['dashing'] = dashing;
 
                             var damage = Models[0].mixer.clipAction('damage');
-                            damage.setLoop(THREE.LoopRepeat);
+                            damage.setLoop(THREE.LoopOnce);
                             //damage.play();
                             actions['damage'] = damage;
                             var ActionKeys = Object.keys(actions);
