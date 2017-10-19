@@ -4,6 +4,7 @@ export default class XAnimationInfo {
         this.boneName = "";
         this.targetBone = null;
 
+        this.keyType = 4;
         this.frameStartLv = 0;
         this.keyFrames = [];
         this.InverseMx = null;

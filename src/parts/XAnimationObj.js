@@ -12,7 +12,18 @@ export default class XAnimationObj {
 
     }
 
-    make(XAnimationInfoArray, mesh) {
+    make(XAnimationInfoArray) {
+        for(let i =0; i < XAnimationInfoArray.length;i++){
+            this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[i]));
+        }
+        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
+    }
+
+    clone(){
+       return Object.assign({}, this);
+    }
+
+    _make(XAnimationInfoArray, mesh) {
 
         const keys = Object.keys(XAnimationInfoArray);
         const hierarchy_tmp = [];
@@ -21,7 +32,7 @@ export default class XAnimationObj {
             let bone = null;
             let parent = -1;
             let baseIndex = -1;
-            
+
             for (let m = 0; m < mesh.skeleton.bones.length; m++) {
 
                 if (mesh.skeleton.bones[m].name == XAnimationInfoArray[keys[i]].boneName) {
@@ -36,13 +47,13 @@ export default class XAnimationObj {
             }
 
             hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
-        
-    }
-    
+
+        }
+
         const keys2 = Object.keys(hierarchy_tmp);
         for (let i = 0; i < keys2.length; i++) {
             this.hierarchy.push(hierarchy_tmp[i]);
-            
+
             let parentId = -1;
             for (let m = 0; m < this.hierarchy.length; m++) {
 
@@ -65,9 +76,16 @@ export default class XAnimationObj {
     makeBonekeys(XAnimationInfo, bone, parent) {
 
         const refObj = {};
-        refObj.name = bone;
-        refObj.parent = parent;
-        refObj.keys = [];
+        refObj.name = XAnimationInfo.boneName;
+        refObj.parent = "";
+        refObj.keys = this.keyFrameRefactor(XAnimationInfo);
+        refObj.copy = function(){return Object.assign({}, this);};
+        return refObj;
+
+    }
+
+    keyFrameRefactor(XAnimationInfo) {
+        const keys = [];
         for (let i = 0; i < XAnimationInfo.keyFrames.length; i++) {
 
             const keyframe = {};
@@ -77,12 +95,11 @@ export default class XAnimationObj {
             keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
             keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
             keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
-            refObj.keys.push(keyframe);
+            keys.push(keyframe);
 
         }
-
-        return refObj;
-
+        return keys;
     }
+
 
 }

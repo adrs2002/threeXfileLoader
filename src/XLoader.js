@@ -37,6 +37,9 @@ export default class XLoader {
     // コンストラクタ
     constructor(manager, Texloader, _zflg) {
 
+        this.debug = true;
+
+        /*
         this.XfileLoadMode = {
 
             none: -1,
@@ -80,6 +83,7 @@ export default class XLoader {
             Anime_ReadKeyFrame: 1005,
 
         };
+        */
 
         this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
         this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
@@ -87,38 +91,14 @@ export default class XLoader {
 
         this.url = "";
         this.baseDir = "";
-        // this.XfileLoadMode = this.XfileLoadMode;
-        // 現在の行読み込みもーど
-        this.nowReadMode = this.XfileLoadMode.none;
-
-        this.nowAnimationKeyType = 4;
-
-        //Xファイルは要素宣言→要素数→要素実体　という並びになるので、要素数宣言を保持する
-        this.tgtLength = 0;
-        this.nowReaded = 0;
-
-        // { の数（ファイル先頭から
-        this.elementLv = 0;
-
-        //ジオメトリ読み込み開始時の　{ の数
-        this.geoStartLv = Number.MAX_VALUE;
-
-        //Frame読み込み開始時の　{ の数
-        this.frameStartLv = Number.MAX_VALUE;
 
         this.matReadLine = 0;
         this.putMatLength = 0;
         this.nowMat = null;
 
-        //ボーン情報格納用
-        this.BoneInf = new XboneInf();
-
         //UV割り出し用の一時保管配列
         this.tmpUvArray = [];
 
-        //放線割り出し用の一時保管配列
-        //Xfileの放線は「頂点ごと」で入っているので、それを面に再計算して割り当てる。面倒だと思う
-        this.normalVectors = [];
         this.facesNormal = [];
 
         //現在読み出し中のフレーム名称
@@ -131,10 +111,10 @@ export default class XLoader {
         this.Hierarchies = {};
         this.HieStack = [];
         this.currentObject = {};
+        this.currentFrame = {};
 
 
         this.endLineCount = 0;
-        this.geometry = null;
 
         this.loadingXdata = null;
         this.lines = null;
@@ -146,7 +126,13 @@ export default class XLoader {
 
         this.IsUvYReverse = true;
 
+        this.Meshes = [];
+        this.Animations = [];
+        this.AnimTicksPerSecond = 30;
 
+        this.currentGeo = null;
+        this.currentAnime = null;
+        this.currentAnimeFrames = null;
     }
 
     //読み込み開始命令部
@@ -278,9 +264,8 @@ export default class XLoader {
         let added = 0;
         let endRead = 16; // 先頭16文字は固定
         this.Hierarchies.children = [];
-
-        const refObj = this.HierarchieParse(this.Hierarchies, endRead);
-
+        this.HierarchieParse(this.Hierarchies, endRead);
+        this.currentObject = this.Hierarchies.children.shift();
         this.mainloop();
 
     }
@@ -291,7 +276,7 @@ export default class XLoader {
             const find1 = this.data.indexOf('{', endRead) + 1;
             const findEnd = this.data.indexOf('}', endRead);
             const findNext = this.data.indexOf('{', find1) + 1;
-            if (find1 > -1 && findEnd > find1) {
+            if (find1 > 0 && findEnd > find1) {
                 const currentObject = {};
                 currentObject.children = [];
                 const nameData = this.data.substr(endRead, find1 - endRead - 1).trim();
@@ -312,14 +297,12 @@ export default class XLoader {
                 if (currentObject.type == "Animation") {
                     currentObject.data = this.data.substr(findNext, findEnd - findNext).trim();
                     const refs = this.HierarchieParse(currentObject, findEnd + 1);
-                    endRead = this.data.indexOf('}', findEnd + 1) + 1;
+                    endRead = refs.end;
                     currentObject.children = refs.parent.children;
                 } else {
-                    const DataEnder = this.data.lastIndexOf(';', findNext);
-                    if (DataEnder < findNext) {
-                        currentObject.data = this.data.substr(find1, DataEnder - find1).trim();
-                    }
-                    if (findEnd < findNext) {
+                    const DataEnder = this.data.lastIndexOf(';', findNext > 0 ? Math.min(findNext, findEnd) : findEnd);
+                    currentObject.data = this.data.substr(find1, DataEnder - find1).trim();
+                    if (findNext <= 0 || findEnd < findNext) {
                         // 子階層なし。クローズ   
                         endRead = findEnd + 1;
                     } else {
@@ -330,7 +313,10 @@ export default class XLoader {
                         currentObject.children = refs.parent.children;
                     }
                 }
-                _parent.children.push(currentObject);
+                currentObject.parent = _parent;
+                if (currentObject.type != "template") {
+                    _parent.children.push(currentObject);
+                }
             } else {
                 endRead = find1 === -1 ? this.data.length : findEnd + 1;
                 break;
@@ -346,41 +332,814 @@ export default class XLoader {
 
     mainloop() {
 
-        let EndFlg = false;
+        const timeoutFlag = this.mainProc();
 
-
-
-
-        /*
-        //フリーズ現象を防ぐため、100行ずつの制御にしている（１行ずつだと遅かった）
-        for (let i = 0; i < 100; i++) {
-
-            this.lineRead(this.lines[this.endLineCount].trim());
-            this.endLineCount++;
-
-            if (this.endLineCount >= this.lines.length - 1) {
-
-                EndFlg = true;
-                this.readFinalize();
+        if (this.currentObject.parent) {
+            this.currentObject = this.currentObject.parent;
+            if (timeoutFlag) {
                 setTimeout(() => {
-                    this.animationFinalize()
+                    console.log(' == break === ');
+                    this.mainloop();
                 }, 1);
-                //this.onLoad(this.loadingXdata);
-                break;
-
+            } else {
+                this.mainloop();
             }
-
-        }
-        */
-
-        if (!EndFlg) {
+        } else {
+            this.readFinalize();
             setTimeout(() => {
-                this.mainloop()
+                this.onLoad({
+                    models: this.Meshes,
+                    animations: this.Animations
+                })
             }, 1);
+        }
+    }
+
+    mainProc() {
+        let ref_timeout = false;
+        while (true) {
+            if (this.currentObject.children.length > 0) {
+                this.currentObject = this.currentObject.children.shift();
+                if (this.debug) {
+                    console.log('processing ' + this.currentObject.name);
+                }
+                switch (this.currentObject.type) {
+                    case "template":
+                        break;
+
+                    case "AnimTicksPerSecond":
+
+                        break;
+
+                    case "Frame":
+                        this.setFrame();
+                        break;
+
+                    case "FrameTransformMatrix":
+                        this.setFrameTransformMatrix();
+                        break;
+
+                    case "Mesh":
+                        this.changeRoot();
+                        this.currentGeo = {};
+                        this.currentGeo.name = this.currentObject.name.trim();
+                        this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
+                        this.currentGeo.VertexSetedBoneCount = [];
+                        this.currentGeo.Geometry = new THREE.Geometry();
+                        this.currentGeo.Materials = [];
+                        this.currentGeo.normalVectors = [];
+                        this.currentGeo.BoneInfs = [];
+                        this.currentGeo.putBones = [];
+                        this.currentGeo.baseFrame = this.currentFrame;
+                        this.makeBoneFromCurrentFrame();
+                        this.readVertexDatas();
+                        ref_timeout = true;
+                        break;
+
+                    case "MeshNormals":
+                        this.readVertexDatas();
+                        break;
+
+                    case "MeshTextureCoords":
+                        this.setMeshTextureCoords();
+                        break;
+
+                    case "VertexDuplicationIndices":
+                        //イラネ
+                        break;
+
+                    case "MeshMaterialList":
+                        this.setMeshMaterialList();
+                        break;
+
+                    case "Material":
+                        this.setMaterial();
+                        break;
+
+                    case "SkinWeights":
+                        this.setSkinWeights();
+                        break;
+
+                    case "AnimationSet":
+                        this.changeRoot();
+                        this.currentAnime = {};
+                        this.currentAnime.name = this.currentObject.name.trim();
+                        this.currentAnime.AnimeFrames = [];
+                        break;
+
+                    case "Animation":
+                        // this.currentAnimeFrames = {};
+                        // this.currentAnimeFrames.boneName = this.currentObject.data.trim();
+                        this.currentAnimeFrames = new XAnimationInfo();
+                        this.currentAnimeFrames.boneName = this.currentObject.data.trim();
+                        break;
+
+                    case "AnimationKey":
+                        this.readAnimationKey();
+                        ref_timeout = true;
+                        break;
+                }
+            } else {
+                // ルート＝親が１つだけの場合
+                if (this.currentObject.parent && !this.currentObject.parent.parent) {
+                    this.changeRoot();
+                }
+                break;
+            }
+        }
+        return ref_timeout;
+    }
+
+    changeRoot() {
+
+        if (this.currentGeo != null && this.currentGeo.name) {
+            this.MakeOutputGeometry();
+            this.currentGeo = {};
+        }
+        if (this.currentAnime != null && this.currentAnime.name) {
+            this.MakeOutputAnimation();
+            this.currentAnime = {};
         }
 
     }
 
+    getParentName(_obj) {
+        if (_obj.parent) {
+            if (_obj.parent.name) {
+                return _obj.parent.name;
+            } else {
+                return this.getParentName(_obj.parent);
+            }
+        } else {
+            return "";
+        }
+    }
+
+    setFrame() {
+        this.nowFrameName = this.currentObject.name.trim();
+        this.currentFrame = {};
+        this.currentFrame.name = this.nowFrameName;
+        this.currentFrame.children = [];
+        if (this.currentObject.parent && this.currentObject.parent.name) {
+            this.currentFrame.parentName = this.currentObject.parent.name;
+        }
+        this.frameHierarchie.push(this.nowFrameName);
+        this.HieStack[this.nowFrameName] = this.currentFrame;
+    }
+
+    setFrameTransformMatrix() {
+        // this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
+        // this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, this.currentObject.data);
+
+        this.currentFrame.FrameTransformMatrix = new THREE.Matrix4();
+        const data = this.currentObject.data.split(",");
+        this.ParseMatrixData(this.currentFrame.FrameTransformMatrix, data);
+        if (this.currentGeo != null && this.currentGeo.putBones) {
+            this.makeBoneFromCurrentFrame();
+        }
+    }
+
+    makeBoneFromCurrentFrame() {
+        const b = new THREE.Bone();
+        b.name = this.currentFrame.name;
+        b.applyMatrix(this.currentFrame.FrameTransformMatrix);
+        b.matrixWorld = b.matrix;
+        b.FrameTransformMatrix = this.currentFrame.FrameTransformMatrix;
+        this.currentGeo.putBones.push(b);
+
+        if (this.currentFrame.parentName) {
+            for (let i = 0; i < this.currentGeo.putBones.length; i++) {
+                if (this.currentGeo.putBones[i].name === this.currentFrame.parentName) {
+                    this.currentGeo.putBones[i].add(this.currentGeo.putBones[this.currentGeo.putBones.length - 1]);
+                    break;
+                }
+            }
+        }
+
+    }
+
+    readVertexDatas() {
+
+        // 1行目は総頂点数。
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        let maxLength = 0;
+        let nowReadedLine = 0;
+        while (true) {
+            let changeMode = false;
+            if (mode_local === 0) {
+                const refO = this.readInt1(endRead);
+                totalV = refO.refI;
+                endRead = refO.endRead;
+                mode_local = 1;
+                nowReadedLine = 0;
+                maxLength = this.currentObject.data.indexOf(';;', endRead) + 1;
+                if (maxLength <= 0) {
+                    maxLength = this.currentObject.data.length
+                }
+            } else {
+                let find = 0;
+                switch (mode) {
+                    case 0:
+                        find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        break;
+                    case 1:
+                        find = this.currentObject.data.indexOf(';,', endRead) + 1;
+                        break;
+                }
+
+                if (find === 0 || find > maxLength) {
+                    find = maxLength;
+                    mode_local = 0;
+                    changeMode = true;
+                }
+
+                switch (this.currentObject.type) {
+                    case "Mesh":
+                        switch (mode) {
+                            case 0:
+                                this.readVertex1(this.currentObject.data.substr(endRead, find - endRead));
+                                break;
+                            case 1:
+                                this.readFace1(this.currentObject.data.substr(endRead, find - endRead));
+                                break;
+                        }
+                        break;
+
+                    case "MeshNormals":
+                        switch (mode) {
+                            case 0:
+                                this.readNormalVector1(this.currentObject.data.substr(endRead, find - endRead));
+                                break;
+                            case 1:
+                                this.readNormalFace1(this.currentObject.data.substr(endRead, find - endRead), nowReadedLine);
+                                break;
+                        }
+                        break;
+                }
+                endRead = find + 1;
+                nowReadedLine++;
+                if (changeMode) {
+                    mode++;
+                }
+            }
+            if (endRead >= this.currentObject.data.length) {
+                break;
+            }
+        }
+    }
+
+    readInt1(start) {
+        const find = this.currentObject.data.indexOf(';', start);
+        return {
+            refI: parseInt(this.currentObject.data.substr(start, find - start)),
+            endRead: find + 1
+        };
+    }
+
+    readVertex1(line) {
+        //頂点が確定
+        const data = line.trim().substr(0, line.length - 2).split(";");
+        this.currentGeo.Geometry.vertices.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
+        //頂点を作りながら、Skin用構造も作成してしまおう
+        this.currentGeo.Geometry.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
+        this.currentGeo.Geometry.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
+        this.currentGeo.VertexSetedBoneCount.push(0);
+    }
+
+    readFace1(line) {
+        // 面に属する頂点数,頂点の配列内index という形で入っている
+        const data = line.trim().substr(2, line.length - 4).split(",");
+        if (this.zflg) {
+            this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
+        } else {
+            this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1], 10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
+        }
+    }
+
+    readNormalVector1(line) {
+        const data = line.trim().substr(0, line.length - 2).split(";");
+        this.currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
+        // this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
+    }
+
+    readNormalFace1(line, nowReaded) {
+
+        const data = line.trim().substr(2, line.length - 4).split(",");
+
+        let nowID = parseInt(data[0], 10);
+        const v1 = this.currentGeo.normalVectors[nowID];
+        nowID = parseInt(data[1], 10);
+        const v2 = this.currentGeo.normalVectors[nowID];
+        nowID = parseInt(data[2], 10);
+        const v3 = this.currentGeo.normalVectors[nowID];
+
+        //研究中
+        if (this.zflg) {
+            this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v3, v2, v1];
+        } else {
+            this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v1, v2, v3];
+        }
+
+    }
+
+
+    setMeshNormals() {
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        while (true) {
+            switch (mode) {
+                case 0: //vertex
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalV = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === -1) {
+                            find = this.currentObject.data.indexOf(';;', endRead) + 1;
+                            mode = 2;
+                            mode_local = 0;
+                        }
+                        const line = this.currentObject.data.substr(endRead, find - endRead);
+                        const data = line.trim().split(";");
+                        this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
+                        endRead = find + 1;
+                    }
+                    break;
+            }
+            if (endRead >= this.currentObject.data.length) {
+                break;
+            }
+        }
+    }
+
+    setMeshTextureCoords() {
+        this.tmpUvArray = [];
+        this.currentGeo.Geometry.faceVertexUvs = [];
+        this.currentGeo.Geometry.faceVertexUvs.push([]);
+
+        let endRead = 0;
+        let totalV = 0;
+        let totalFace = 0;
+        let mode = 0;
+        let mode_local = 0
+        while (true) {
+            switch (mode) {
+                case 0: //vertex
+                    if (mode_local === 0) {
+                        const refO = this.readInt1(0);
+                        totalV = refO.refI;
+                        endRead = refO.endRead;
+                        mode_local = 1;
+                    } else {
+                        let find = this.currentObject.data.indexOf(',', endRead) + 1;
+                        if (find === 0) {
+                            find = this.currentObject.data.length;
+                            mode = 2;
+                            mode_local = 0;
+                        }
+                        const line = this.currentObject.data.substr(endRead, find - endRead);
+                        const data = line.trim().split(";");
+                        if (this.IsUvYReverse) {
+                            this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
+                        } else {
+                            this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
+                        }
+                        endRead = find + 1;
+                    }
+                    break;
+            }
+            if (endRead >= this.currentObject.data.length) {
+                break;
+            }
+        }
+        //UV読み込み完了。メッシュにUVを割り当てる
+        this.currentGeo.Geometry.faceVertexUvs[0] = [];
+        for (var m = 0; m < this.currentGeo.Geometry.faces.length; m++) {
+            this.currentGeo.Geometry.faceVertexUvs[0][m] = [];
+            this.currentGeo.Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.Geometry.faces[m].a]);
+            this.currentGeo.Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.Geometry.faces[m].b]);
+            this.currentGeo.Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.currentGeo.Geometry.faces[m].c]);
+
+        }
+        this.currentGeo.Geometry.uvsNeedUpdate = true;
+    }
+
+    setMeshMaterialList() {
+        let endRead = 0;
+        let mode = 0;
+        let mode_local = 0;
+        let readCount = 0;
+        while (true) {
+            if (mode_local < 2) {
+                const refO = this.readInt1(endRead);
+                endRead = refO.endRead;
+                mode_local++;
+                readCount = 0;
+            } else {
+                let find = this.currentObject.data.indexOf(';', endRead);
+                if (find === -1) {
+                    find = this.currentObject.data.length;
+                    mode = 3;
+                    mode_local = 0;
+                }
+                const line = this.currentObject.data.substr(endRead, find - endRead);
+                const data = line.trim().split(",");
+                for (let i = 0; i < data.length; i++) {
+                    this.currentGeo.Geometry.faces[i].materialIndex = parseInt(data[i]);
+                }
+                endRead = this.currentObject.data.length;
+            }
+            if (endRead >= this.currentObject.data.length || mode >= 3) {
+                break;
+            }
+        }
+    }
+
+    setMaterial() {
+        const nowMat = new THREE.MeshPhongMaterial({
+            color: Math.random() * 0xffffff
+        });
+
+        if (this.zflg) {
+            nowMat.side = THREE.BackSide;
+        } else {
+            nowMat.side = THREE.FrontSide;
+        }
+        nowMat.side = THREE.FrontSide;
+
+        nowMat.name = this.currentObject.name;
+
+        let endRead = 0;
+        // １つめの[;;]まで＝Diffuse
+        let find = this.currentObject.data.indexOf(';;', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        const data = line.trim().split(";");
+        nowMat.color.r = parseFloat(data[0]);
+        nowMat.color.g = parseFloat(data[1]);
+        nowMat.color.b = parseFloat(data[2]);
+
+        // 次の [;]まで＝反射率
+        endRead = find + 2;
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        nowMat.shininess = parseFloat(line);
+
+        // 次の[;;]まで＝反射光？
+        endRead = find + 1;
+        find = this.currentObject.data.indexOf(';;', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data2 = line.trim().split(";");
+        nowMat.specular.r = parseFloat(data2[0]);
+        nowMat.specular.g = parseFloat(data2[1]);
+        nowMat.specular.b = parseFloat(data2[2]);
+
+        // 次の [;]まで＝発光色?
+        endRead = find + 2;
+        find = this.currentObject.data.indexOf(';;', endRead);
+        if (find === -1) {
+            find = this.currentObject.data.length;
+        }
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data3 = line.trim().split(";");
+        nowMat.emissive.r = parseFloat(data3[0]);
+        nowMat.emissive.g = parseFloat(data3[1]);
+        nowMat.emissive.b = parseFloat(data3[2]);
+
+        // 子階層処理
+        let localObject = null;
+        while (true) {
+            if (this.currentObject.children.length > 0) {
+                localObject = this.currentObject.children.shift();
+                if (this.debug) {
+                    console.log('processing ' + localObject.name);
+                }
+                const fileName = localObject.data.substr(1, localObject.data.length - 2);
+                switch (localObject.type) {
+                    case "TextureFilename":
+                        nowMat.map = this.Texloader.load(this.baseDir + fileName);
+                        break;
+                    case "BumpMapFilename":
+                        nowMat.bumpMap = this.Texloader.load(this.baseDir + fileName);
+                        nowMat.bumpScale = 0.05;
+                        break;
+                    case "NormalMapFilename":
+                        nowMat.normalMap = this.Texloader.load(this.baseDir + fileName);
+                        nowMat.normalScale = new THREE.Vector2(2, 2);
+                        break;
+                    case "EmissiveMapFilename":
+                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + fileName);
+                        break;
+                    case "LightMapFilename":
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
+                        break;
+                    case "LightMapFilename":
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
+                        break;
+
+                        // nowMat.envMap = this.Texloader.load(this.baseDir + data);
+                }
+            } else {
+                break;
+            }
+        }
+
+        this.currentGeo.Materials.push(nowMat);
+    }
+
+    setSkinWeights() {
+        const boneInf = new XboneInf();
+
+        let endRead = 0;
+        // １つめの[;]まで＝name
+        let find = this.currentObject.data.indexOf(';', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        endRead = find + 1;
+
+        boneInf.boneName = line.substr(1, line.length - 2);
+        boneInf.BoneIndex = this.currentGeo.BoneInfs.length;
+
+        // ボーンに属する頂点数。今はいらない
+        find = this.currentObject.data.indexOf(';', endRead);
+        endRead = find + 1;
+
+        // 次の[;]まで：このボーンに属する頂点Index
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data = line.trim().split(",");
+        for (let i = 0; i < data.length; i++) {
+            boneInf.Indeces.push(parseInt(data[i]));
+        }
+        endRead = find + 1;
+        //  次の[;]まで：それぞれの頂点に対するweight
+        find = this.currentObject.data.indexOf(';', endRead);
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data2 = line.trim().split(",");
+        for (let i = 0; i < data2.length; i++) {
+            boneInf.Weights.push(parseFloat(data2[i]));
+        }
+        endRead = find + 1;
+        // 次の[;] or 最後まで：ini matrix
+        find = this.currentObject.data.indexOf(';', endRead);
+        if (find <= 0) {
+            find = this.currentObject.data.length;
+        }
+        line = this.currentObject.data.substr(endRead, find - endRead);
+        const data3 = line.trim().split(",");
+        boneInf.initMatrix = new THREE.Matrix4();
+        this.ParseMatrixData(boneInf.initMatrix, data3);
+
+        boneInf.OffsetMatrix = new THREE.Matrix4();
+        boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
+        this.currentGeo.BoneInfs.push(boneInf);
+
+    }
+
+    MakeOutputGeometry() {
+
+        //１つのmesh終了
+        this.currentGeo.Geometry.computeBoundingBox();
+        this.currentGeo.Geometry.computeBoundingSphere();
+
+        this.currentGeo.Geometry.verticesNeedUpdate = true;
+        this.currentGeo.Geometry.normalsNeedUpdate = true;
+        this.currentGeo.Geometry.colorsNeedUpdate = true;
+        this.currentGeo.Geometry.uvsNeedUpdate = true;
+        this.currentGeo.Geometry.groupsNeedUpdate = true;
+
+        //ボーンの階層構造を作成する
+
+        let mesh = null;
+        const bufferGeometry = new THREE.BufferGeometry();
+
+        if (this.currentGeo.BoneInfs.length > 0) {
+            //さらに、ウェイトとボーン情報を紐付ける
+            for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
+                // ズレているskinWeightのボーンと、頂点のないボーン情報とのすり合わせ
+                let boneIndex = 0;
+                for(let bb =0; bb < this.currentGeo.putBones.length;bb++){
+                    if(this.currentGeo.putBones[bb].name ===this.currentGeo.BoneInfs[bi].boneName){
+                        boneIndex = bb;
+                        break;
+                    }
+                }
+
+                //ウェイトのあるボーンであることが確定。頂点情報を割り当てる
+                for (let vi = 0; vi < this.currentGeo.BoneInfs[bi].Indeces.length; vi++) {
+                    //頂点へ割り当て
+                    const nowVertexID = this.currentGeo.BoneInfs[bi].Indeces[vi];
+                    const nowVal = this.currentGeo.BoneInfs[bi].Weights[vi];
+
+                    switch (this.currentGeo.VertexSetedBoneCount[nowVertexID]) {
+                        case 0:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = boneIndex;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
+                            break;
+                        case 1:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = boneIndex;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
+                            break;
+                        case 2:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = boneIndex;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].z = nowVal;
+                            break;
+                        case 3:
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = boneIndex;
+                            this.currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
+                            break;
+                    }
+                    this.currentGeo.VertexSetedBoneCount[nowVertexID]++;
+                }
+            }
+
+            for (let sk = 0; sk < this.currentGeo.Materials.length; sk++) {
+                this.currentGeo.Materials[sk].skinning = true;
+            }
+
+            mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.currentGeo.Geometry), new THREE.MultiMaterial(this.currentGeo.Materials));
+            const skeleton = new THREE.Skeleton(this.currentGeo.putBones);
+            mesh.add(this.currentGeo.putBones[0]);
+            mesh.bind(skeleton);
+
+        } else {
+            mesh = new THREE.Mesh(this.currentGeo.Geometry, new THREE.MultiMaterial(this.currentGeo.Materials));
+        }
+
+        mesh.name = this.currentGeo.name;
+        this.Meshes.push(mesh);
+    }
+
+
+    readAnimationKey() {
+
+        let endRead = 0;
+        // １つめの[;]まで＝keyType
+        let find = this.currentObject.data.indexOf(';', endRead);
+        let line = this.currentObject.data.substr(endRead, find - endRead);
+        endRead = find + 1;
+
+        this.currentAnimeFrames.keyType = parseInt(line);
+        // 2つめの[;]まで＝キー数。スルー
+        find = this.currentObject.data.indexOf(';', endRead);
+        endRead = find + 1;
+        // 本番 [;;,] で1キーとなる
+        line = this.currentObject.data.substr(endRead);
+        const data = line.trim().split(";;,");
+        for (let i = 0; i < data.length; i++) {
+            //内部。さらに[;]でデータが分かれる
+            const data2 = data[i].split(";");
+
+            const keyInfo = new XKeyFrameInfo();
+            keyInfo.matrix = new THREE.Matrix4();
+            keyInfo.Frame = parseInt(data2[0]);
+
+            this.ParseMatrixData(keyInfo.matrix, data2[2].split(","));
+
+            keyInfo.index = this.currentAnimeFrames.keyFrames.length;
+            keyInfo.time = keyInfo.Frame;
+            this.currentAnimeFrames.keyFrames.push(keyInfo);
+
+            /* matrixキー以外の対応が必要になったら、下を考える。
+            //すでにそのキーが宣言済みでないかどうかを探す
+            //要素によるキー飛ばし（回転：0&20フレーム、　移動:0&10&20フレーム　で、10フレーム時に回転キーがない等 )には対応できていない
+            if (this.currentAnimeFrames.keyType != 4) {
+                for (var mm = 0; mm < this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length; mm++) {
+                    if (this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames[mm].Frame === nowKeyframe) {
+                        this.keyInfo = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames[mm];
+                        frameFound = true;
+                        break;
+                    }
+                }
+            }
+                        switch (this.nowAnimationKeyType) {
+
+                case 0:
+                    tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2])));
+                    this.keyInfo.matrix.multiply(tmpM);
+                    break;
+                case 1:
+                    tmpM.makeScale(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
+                    this.keyInfo.matrix.multiply(tmpM);
+                    break;
+                case 2:
+                    tmpM.makeTranslation(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
+                    this.keyInfo.matrix.multiply(tmpM);
+                    break;
+                    //case 3: this.keyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
+                case 4:
+                    this.ParseMatrixData(this.keyInfo.matrix, data2);
+                    break;
+            }
+
+            if (!frameFound) {
+                this.keyInfo.index = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length;
+                this.keyInfo.time =  this.keyInfo.Frame;
+                this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.push(this.keyInfo);
+            }
+
+            this.nowReaded++;
+            if (this.nowReaded >= this.tgtLength || line.indexOf(";;;") > -1) {
+                this.nowReadMode = this.XfileLoadMode.Anim_init                
+            }
+            */
+        }
+
+        this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
+    }
+
+    MakeOutputAnimation() {
+        const animationObj = new XAnimationObj();
+        animationObj.fps = this.AnimTicksPerSecond;
+        animationObj.name = this.currentAnime.name;
+        animationObj.make(this.currentAnime.AnimeFrames);
+        this.Animations.push(animationObj);
+
+    }
+
+    /**
+     * 
+     * @param { THREE.Mesh } _model 
+     * @param { XAnimationObj } _animation
+     */
+    assignAnimation(_model, _animation) {
+        let model = _model;
+        let animation = _animation;
+        if (!model) {
+            model = this.Meshes[0];
+        }
+        if (!animation) {
+            animation = this.Animations[0];
+        }
+
+        const put = {};
+        put.fps = animation.fps;
+        put.name = animation.name;
+        put.length = animation.length;
+        put.hierarchy = [];
+        for (let b = 0; b < model.skeleton.bones.length; b++) {
+            for (let i = 0; i < animation.hierarchy.length; i++) {
+                if (model.skeleton.bones[b].name === animation.hierarchy[i].name) {
+                    const c_key = animation.hierarchy[i].copy();
+                    c_key.parent = -1;
+                    if (model.skeleton.bones[b].parent && model.skeleton.bones[b].parent.type === "Bone") {
+                        for (let bb = 0; bb < put.hierarchy.length; bb++) {
+                            if (put.hierarchy[bb].name === model.skeleton.bones[b].parent.name) {
+                                c_key.parent = bb;
+                                c_key.parentName = model.skeleton.bones[b].parent.name;
+                                break;
+                            }
+                        }
+                    }
+
+                    put.hierarchy.push(c_key);
+                    break;
+                }
+            }
+        }
+        return put;
+    }
+
+
+    readFinalize() {
+        //アニメーション情報、ボーン構造などを再構築
+
+        //一部ソフトウェアからの出力用（DirectXとOpenGLのZ座標系の違い）に、鏡面処理を行う
+        /* まだ
+        if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
+            for (let i = 0; i < this.loadingXdata.FrameInfo.length; i++) {
+                if (this.loadingXdata.FrameInfo[i].parent == null) {
+                    this.loadingXdata.FrameInfo[i].zflag = this.zflg;
+                    if (this.zflg) {
+                        this.loadingXdata.FrameInfo[i].scale.set(-1, 1, 1);
+                    }
+                }
+            }
+        }
+        */
+    }
+
+    ///
+
+    /////////////////////////////////
+    ParseMatrixData(targetMatrix, data) {
+
+        targetMatrix.set(
+            parseFloat(data[0]), parseFloat(data[4]), parseFloat(data[8]), parseFloat(data[12]),
+            parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
+            parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
+            parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
+
+    }
+
+    /////////////////// old logic /////////////////
 
 
     //Xファイル解析メイン
@@ -810,80 +1569,12 @@ export default class XLoader {
 
     }
 
-    beginMeshNormal(line) {
-
-        this.nowReadMode = this.XfileLoadMode.Normal_V_init;
-        this.normalVectors = [];
-        this.facesNormal = [];
-
-    }
-
-    readMeshNormalCount(line) {
-
-        this.nowReadMode = this.XfileLoadMode.Normal_V_Read;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-
-    }
-
-    readMeshNormalVertex(line) {
-
-        var data = line.split(";");
-        this.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-
-            this.nowReadMode = this.XfileLoadMode.Normal_I_init;
-            return true;
-
-        }
-
-        return false;
-
-    }
 
     readMeshNormalIndexCount(line) {
 
         this.nowReadMode = this.XfileLoadMode.Normal_I_Read;
         this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
         this.nowReaded = 0;
-
-    }
-
-    readMeshNormalIndex(line) {
-        //やっとNomal放線が決まる
-        const data = line.substr(2, line.length - 4).split(",");
-        //indexに対応したベクトルを一度取得＆加算し、単位ベクトルを得てからセットする
-
-        let nowID = parseInt(data[0], 10);
-        const v1 = new THREE.Vector3(this.normalVectors[nowID][0], this.normalVectors[nowID][1], this.normalVectors[nowID][2]);
-        nowID = parseInt(data[1], 10);
-        const v2 = new THREE.Vector3(this.normalVectors[nowID][0], this.normalVectors[nowID][1], this.normalVectors[nowID][2]);
-        nowID = parseInt(data[2], 10);
-        const v3 = new THREE.Vector3(this.normalVectors[nowID][0], this.normalVectors[nowID][1], this.normalVectors[nowID][2]);
-
-        //研究中
-        if (this.zflg) {
-
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].vertexNormals = [v3, v2, v1];
-
-        } else {
-
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].vertexNormals = [v1, v2, v3];
-
-        }
-        //this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].vertexNormals = [v1, v2, v3];
-
-        this.facesNormal.push(v1.normalize());
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-
-            this.nowReadMode = this.XfileLoadMode.Element;
-            return true;
-
-        }
-
-        return false;
 
     }
 
@@ -1252,7 +1943,7 @@ export default class XLoader {
     }
     ////////////////////////
 
-    readFinalize() {
+    _readFinalize() {
         //アニメーション情報、ボーン構造などを再構築
         this.loadingXdata.FrameInfo = [];
         const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
@@ -1288,20 +1979,9 @@ export default class XLoader {
 
     }
 
-    /////////////////////////////////
-    ParseMatrixData(targetMatrix, data) {
-
-        targetMatrix.set(
-            parseFloat(data[0]), parseFloat(data[4]), parseFloat(data[8]), parseFloat(data[12]),
-            parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
-            parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
-            parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
-
-    }
-
 
     //最終的に出力されるTHREE.js型のメッシュ（Mesh)を確定する
-    MakeOutputGeometry(nowFrameName, _zflg) {
+    _MakeOutputGeometry(nowFrameName, _zflg) {
 
         if (this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
 
@@ -1445,7 +2125,7 @@ export default class XLoader {
     }
 
     //ガチ最終・アニメーションを独自形式→Three.jsの標準に変換する
-    animationFinalize() {
+    _animationFinalize() {
 
         this.animeKeyNames = Object.keys(this.loadingXdata.AnimationSetInfo);
         if (this.animeKeyNames != null && this.animeKeyNames.length > 0) {
@@ -1463,7 +2143,7 @@ export default class XLoader {
     }
 
 
-    animationFinalize_step() {
+    _animationFinalize_step() {
 
         const i = this.nowReaded;
         const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
@@ -1503,10 +2183,13 @@ export default class XLoader {
 
     }
 
-    finalproc() {
+    _finalproc() {
 
         setTimeout(() => {
-            this.onLoad(this.loadingXdata)
+            this.onLoad({
+                models: this.Meshes,
+                animations: this.Animations
+            })
         }, 1);
 
     }
