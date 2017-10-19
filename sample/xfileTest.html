@@ -36,21 +36,18 @@
 </head>
 
 <body>
-    <div id="info">
-        <a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test
-        <br />
-    </div>
+
     <div id="canvase3d"></div>
 
     <!-- <script src="three.min.js"></script> -->
     <script src="../three.js"></script>
     <script src="lib/OrbitControls.js"></script>
 
-    <script src="../XLoader.js"></script>
+    <script src="../threeXLoader.js"></script>
 
     <script src="lib/Detector.js"></script>
     <script src="lib/stats.min.js"></script>
-    <!-- <script src='../../examples/js/libs/dat.gui.min.js'></script> -->
+    
     <script src='lib/dat.gui.min.js'></script>
     <script>
         var StringBuffer = function (string) {
@@ -103,7 +100,7 @@
             document.body.appendChild(container);
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
             scene = new THREE.Scene();
-            scene.add(new THREE.AmbientLight(0x999999));
+            scene.add(new THREE.AmbientLight(0xaaaaaa));
             // grid
             var gridHelper = new THREE.GridHelper(14, 1, 0x303030, 0x303030);
             gridHelper.position.set(0, -0.04, 0);
@@ -128,7 +125,7 @@
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/SSR06_model.x', false, true], function (object) {
+            loader.load(['content/SSR06_model.x', true, true], function (object) {
 
                 for (var i = 0; i < object.models.length; i++) {
                     Models.push(object.models[i]);
@@ -136,7 +133,7 @@
                 }
 
                 var loader2 = new THREE.XLoader(manager, Texloader);
-                loader2.load(['content/SSR06_anime.x', false, true], function (object2) {
+                loader2.load(['content/SSR06_anime.x', true, true], function (object2) {
 
                     if (Models[0] instanceof THREE.SkinnedMesh) {
                         skeletonHelper = new THREE.SkeletonHelper(Models[0]);
@@ -166,31 +163,34 @@
                                 splitAnimation(animateObj, 'damage', 500 * animateObj.fps, 530 *
                                     animateObj.fps), Models[0].skeleton.bones));
 
-                            Models[0].mixer = new THREE.AnimationMixer(Models[0]);
-                            animates.push(Models[0].mixer);
+                           mixer = new THREE.AnimationMixer(Models[0]);
+                            animates.push(mixer);
 
-                            var stand = Models[0].mixer.clipAction('stand');
+                            var stand = mixer.clipAction('stand');
                             // stand.play();
                             stand.setLoop(THREE.LoopOnce);
+                            stand.clampWhenFinished = true;
                             actions['stand'] = stand;
 
-                            var walk = Models[0].mixer.clipAction('walk');
+                            var walk = mixer.clipAction('walk');
                             walk.setLoop(THREE.LoopRepeat);
                             walk.play();
                             actions['walk'] = walk;
 
-                            var dash = Models[0].mixer.clipAction('dash');
+                            var dash = mixer.clipAction('dash');
                             dash.setLoop(THREE.LoopOnce);
+                            dash.clampWhenFinished = true;
                             //dash.play();
                             actions['dash'] = dash;
 
-                            var dashing = Models[0].mixer.clipAction('dashing');
+                            var dashing = mixer.clipAction('dashing');
                             dashing.setLoop(THREE.LoopPingPong);
                             // dashing.play();
                             actions['dashing'] = dashing;
 
-                            var damage = Models[0].mixer.clipAction('damage');
-                            damage.setLoop(THREE.LoopOnce);
+                            var damage = mixer.clipAction('damage');
+                            damage.setLoop(THREE.LoopOnce);                            
+                            damage.clampWhenFinished = true;
                             //damage.play();
                             actions['damage'] = damage;
                             var ActionKeys = Object.keys(actions);
@@ -217,11 +217,11 @@
             camera.position.set(2, 18, 28);
             camera.up.set(0, 1, 0);
 
-            var light = new THREE.DirectionalLight(0xeeeeff, 2);
-            light.position.set(10, 100, 1).normalize();
+            var light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(10, 100, 10).normalize();
             scene.add(light);
 
-            light = new THREE.DirectionalLight(0xaa5555);
+            light = new THREE.DirectionalLight(0x777666, 1);
             light.position.set(-1, -1, -1).normalize();
             scene.add(light);
 

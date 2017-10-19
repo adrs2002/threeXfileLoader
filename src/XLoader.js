@@ -925,8 +925,8 @@ export default class XLoader {
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
                 // ズレているskinWeightのボーンと、頂点のないボーン情報とのすり合わせ
                 let boneIndex = 0;
-                for(let bb =0; bb < this.currentGeo.putBones.length;bb++){
-                    if(this.currentGeo.putBones[bb].name ===this.currentGeo.BoneInfs[bi].boneName){
+                for (let bb = 0; bb < this.currentGeo.putBones.length; bb++) {
+                    if (this.currentGeo.putBones[bb].name === this.currentGeo.BoneInfs[bi].boneName) {
                         boneIndex = bb;
                         break;
                     }
@@ -1109,21 +1109,13 @@ export default class XLoader {
 
 
     readFinalize() {
-        //アニメーション情報、ボーン構造などを再構築
-
-        //一部ソフトウェアからの出力用（DirectXとOpenGLのZ座標系の違い）に、鏡面処理を行う
-        /* まだ
-        if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
-            for (let i = 0; i < this.loadingXdata.FrameInfo.length; i++) {
-                if (this.loadingXdata.FrameInfo[i].parent == null) {
-                    this.loadingXdata.FrameInfo[i].zflag = this.zflg;
-                    if (this.zflg) {
-                        this.loadingXdata.FrameInfo[i].scale.set(-1, 1, 1);
-                    }
-                }
+        //一部ソフトウェアからの出力用（DirectXとOpenGLのZ座標系の違い）に、鏡面処理を行う     
+        if (this.zflg) {
+            for (let i = 0; i < this.Meshes.length; i++) {
+                this.Meshes[i].scale.set(-1, 1, 1);
+                this.Meshes[i].rotation.y = Math.PI;
             }
         }
-        */
     }
 
     ///
