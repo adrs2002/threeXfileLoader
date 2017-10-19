@@ -100,7 +100,7 @@ export default class XLoader {
         this.tmpUvArray = [];
 
         this.facesNormal = [];
-
+        this.normalReadFlag = false;
         //現在読み出し中のフレーム名称
         this.nowFrameName = "";
 
@@ -398,6 +398,7 @@ export default class XLoader {
 
                     case "MeshNormals":
                         this.readVertexDatas();
+                        this.normalReadFlag = true;
                         break;
 
                     case "MeshTextureCoords":
@@ -910,7 +911,9 @@ export default class XLoader {
         this.currentGeo.Geometry.computeBoundingSphere();
 
         this.currentGeo.Geometry.verticesNeedUpdate = true;
-        this.currentGeo.Geometry.normalsNeedUpdate = true;
+        if(!this.normalReadFlag){
+            this.currentGeo.Geometry.normalsNeedUpdate = true;
+        }
         this.currentGeo.Geometry.colorsNeedUpdate = true;
         this.currentGeo.Geometry.uvsNeedUpdate = true;
         this.currentGeo.Geometry.groupsNeedUpdate = true;

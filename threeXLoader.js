@@ -144,6 +144,7 @@ class XLoader {
         this.nowMat = null;
         this.tmpUvArray = [];
         this.facesNormal = [];
+        this.normalReadFlag = false;
         this.nowFrameName = "";
         this.nowAnimationSetName = "";
         this.frameHierarchie = [];
@@ -356,6 +357,7 @@ class XLoader {
                         break;
                     case "MeshNormals":
                         this.readVertexDatas();
+                        this.normalReadFlag = true;
                         break;
                     case "MeshTextureCoords":
                         this.setMeshTextureCoords();
@@ -775,7 +777,9 @@ class XLoader {
         this.currentGeo.Geometry.computeBoundingBox();
         this.currentGeo.Geometry.computeBoundingSphere();
         this.currentGeo.Geometry.verticesNeedUpdate = true;
-        this.currentGeo.Geometry.normalsNeedUpdate = true;
+        if(!this.normalReadFlag){
+            this.currentGeo.Geometry.normalsNeedUpdate = true;
+        }
         this.currentGeo.Geometry.colorsNeedUpdate = true;
         this.currentGeo.Geometry.uvsNeedUpdate = true;
         this.currentGeo.Geometry.groupsNeedUpdate = true;
