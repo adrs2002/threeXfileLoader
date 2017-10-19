@@ -7,14 +7,14 @@ X file(directX 3d file) loader for three.js.
 
 please look this [demo][] 
 
-[demo]: http://www001.upp.so-net.ne.jp/adrs2002/xfileTest.html      "Demo"
+[demo]: http://adrs2002.com/openlibs/xloader/xfileTest.html      "Demo"
 
 ## Requirement
 THREE.js
 
 ##how to use　使い方的な。
 
-0. read 2 .js file , 'three.js(three.min.js)', and 'XfileLoader.js' your HTML file.
+0. read 2 .js file , 'three.js(three.min.js)', and 'threeXLoader.js' your HTML file.
 
 1.  Declaration  THREE.JS Load Manager, and TextureLoader.  
  like this  
@@ -45,7 +45,7 @@ THREE.js
             object = null;
         }, onProgress, onError);
 
-4. load from URL(with animation)
+4. load from URL(with model and animation)
 
         loader.load(['X Data URL', true, true], function (object) {
             for (var i = 0; i < object.FrameInfo.length; i++) {
@@ -55,10 +55,19 @@ THREE.js
                 if (Models[i] instanceof THREE.SkinnedMesh) {
                     skeletonHelper = new THREE.SkeletonHelper(Models[i]);
                     scene.add( skeletonHelper );
-                    if (Models[i].geometry.animations !== undefined) {
+                    var animateObj = loader2.assignAnimation(Models[0]);
+
+                    if (animateObj !== undefined) {
                         Models[i].mixer = new THREE.AnimationMixer(Models[i]);
-                        animates.push(Models[i].mixer);
-                        var action = Models[i].mixer.clipAction(Models[i].geometry.animations);
+                        Models[i].geometry.animations = [];
+
+                        Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(
+                            splitAnimation(animateObj, 'stand', 10 * animateObj.fps, 11 *
+                                animateObj.fps), Models[i].skeleton.bones));
+                        var mixer = new THREE.AnimationMixer(Models[0]);
+
+                        animates.push(mixer);
+                        var action = mixer.clipAction(Models[i].geometry.animations);
                         action.play();
                     }
                 }

@@ -5,7 +5,7 @@ import cleanup from 'rollup-plugin-cleanup';
 export default {
   input: './src/XLoader.js',
   output: {
-    file: './XLoader.js',
+    file: './threeXLoader.js',
     format: 'umd',
     name: 'THREE.XLoader'
   },

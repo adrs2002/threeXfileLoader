@@ -784,8 +784,8 @@ class XLoader {
         if (this.currentGeo.BoneInfs.length > 0) {
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
                 let boneIndex = 0;
-                for(let bb =0; bb < this.currentGeo.putBones.length;bb++){
-                    if(this.currentGeo.putBones[bb].name ===this.currentGeo.BoneInfs[bi].boneName){
+                for (let bb = 0; bb < this.currentGeo.putBones.length; bb++) {
+                    if (this.currentGeo.putBones[bb].name === this.currentGeo.BoneInfs[bi].boneName) {
                         boneIndex = bb;
                         break;
                     }
@@ -892,6 +892,12 @@ class XLoader {
         return put;
     }
     readFinalize() {
+        if (this.zflg) {
+            for (let i = 0; i < this.Meshes.length; i++) {
+                this.Meshes[i].scale.set(-1, 1, 1);
+                this.Meshes[i].rotation.y = Math.PI;
+            }
+        }
     }
     ParseMatrixData(targetMatrix, data) {
         targetMatrix.set(
