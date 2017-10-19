@@ -1,3 +1,6 @@
+xof 0303txt 0032
+
+AnimTicksPerSecond { 30; }
 
 AnimationSet AnimationSet_SSR06_Born2 {
 

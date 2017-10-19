@@ -37,8 +37,9 @@
 
 <body>
     <div id="info">
-		<a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test<br />
-	</div>
+        <a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test
+        <br />
+    </div>
     <div id="canvase3d"></div>
 
     <!-- <script src="three.min.js"></script> -->
@@ -52,12 +53,18 @@
     <!-- <script src='../../examples/js/libs/dat.gui.min.js'></script> -->
     <script src='lib/dat.gui.min.js'></script>
     <script>
-
         var StringBuffer = function (string) {
             this.buffer = [];
-            this.append = function (string) { this.buffer.push(string); return this; };
-            this.toString = function () { return this.buffer.join(''); };
-            if (string) { this.append(string); }
+            this.append = function (string) {
+                this.buffer.push(string);
+                return this;
+            };
+            this.toString = function () {
+                return this.buffer.join('');
+            };
+            if (string) {
+                this.append(string);
+            }
         };
 
         if (!Detector.webgl) Detector.addGetWebGLMessage();
@@ -115,90 +122,85 @@
                     console.log(Math.round(percentComplete, 2) + '% downloaded');
                 }
             };
-            var onError = function (xhr) {
-            };
+            var onError = function (xhr) {};
 
             Texloader = new THREE.TextureLoader();
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/SSR06_Born2.x', false, true], function (object) {
+            loader.load(['content/SSR06_model.x', false, true], function (object) {
+
                 for (var i = 0; i < object.models.length; i++) {
                     Models.push(object.models[i]);
                     scene.add(Models[i]);
-
-                    //create animations
-                    if (Models[i] instanceof THREE.SkinnedMesh) {
-                        skeletonHelper = new THREE.SkeletonHelper(Models[i]);
-                        scene.add(skeletonHelper);
-
-                        if (object.animations !== undefined && object.animations.length !== 0) {
-                            Models[i].geometry.animations = [];
-
-                            /* 
-                            *  ↓ that is BASIC animation data code.
-                            *  Usually, please use this.
-                            *  Because of the data I have, I use a different code
-                            * 
-                           for (var a = 0; a < object.XAnimationObj.length; a++) {
-                               Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(object.XAnimationObj[a], Models[i].skeleton.bones));
-                           } 
-                           Models[i].mixer = new THREE.AnimationMixer(Models[i]);
-                           animates.push(Models[i].mixer);
-
-                           var action = Models[i].mixer.clipAction(Models[i].geometry.animations[0]);
-                           action.play();
-                           */
-
-                            // ↓ that is a code for [ All animation-keyframes are connected data ].
-
-                            {
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'stand', 10 * object.animations[0].fps, 11 * object.animations[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'walk', 50 * object.animations[0].fps, 80 * object.animations[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'dash', 140 * object.animations[0].fps, 160 * object.animations[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'dashing', 160 * object.animations[0].fps, 165 * object.animations[0].fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(object.animations[0], 'damage', 500 * object.animations[0].fps, 530 * object.animations[0].fps), Models[i].skeleton.bones));
-
-                                Models[i].mixer = new THREE.AnimationMixer(Models[i]);
-                                animates.push(Models[i].mixer);
-
-                                var stand = Models[i].mixer.clipAction('stand');
-                                // stand.play();
-                                stand.setLoop(THREE.LoopRepeat);
-                                actions['stand'] = stand;
-
-                                var walk = Models[i].mixer.clipAction('walk');
-                                walk.setLoop(THREE.LoopRepeat);
-                                walk.play();
-                                actions['walk'] = walk;
-
-                                var dash = Models[i].mixer.clipAction('dash');
-                                dash.setLoop(THREE.LoopOnce);
-                                //dash.play();
-                                actions['dash'] = dash;
-
-                                var dashing = Models[i].mixer.clipAction('dashing');
-                                dashing.setLoop(THREE.LoopPingPong);
-                                // dashing.play();
-                                actions['dashing'] = dashing;
-
-                                var damage = Models[i].mixer.clipAction('damage');
-                                damage.setLoop(THREE.LoopRepeat);
-                                //damage.play();
-                                actions['damage'] = damage;
-                                var ActionKeys = Object.keys(actions);
-                                var dmy  = {};
-                                dmy.action = "";
-                                gui.add(dmy, 'action', ActionKeys).onChange(function (v) {
-                                    animates[0].stopAllAction();
-                                    actions[v].play();
-                                });
-                            }
-                            ///////////
-                        }
-                    }
                 }
 
+                var loader2 = new THREE.XLoader(manager, Texloader);
+                loader2.load(['content/SSR06_anime.x', false, true], function (object2) {
+
+
+                    if (Models[0] instanceof THREE.SkinnedMesh) {
+                        skeletonHelper = new THREE.SkeletonHelper(Models[0]);
+                        scene.add(skeletonHelper);
+                        var animateObj = loader2.assignAnimation(Models[0]);
+
+                        if (animateObj !== undefined) {
+                            
+                            Models[0].geometry.animations = [];
+
+                            Models[0].geometry.animations.push(THREE.AnimationClip.parseAnimation(
+                                splitAnimation(animateObj, 'stand', 10 * animateObj.fps, 11 *
+                                    animateObj.fps), Models[0].skeleton.bones));
+                            Models[0].geometry.animations.push(THREE.AnimationClip.parseAnimation(
+                                splitAnimation(animateObj, 'walk', 50 * animateObj.fps, 80 *
+                                    animateObj.fps), Models[0].skeleton.bones));
+                            Models[0].geometry.animations.push(THREE.AnimationClip.parseAnimation(
+                                splitAnimation(animateObj, 'dash', 140 * animateObj.fps, 160 *
+                                    animateObj.fps), Models[0].skeleton.bones));
+                            Models[0].geometry.animations.push(THREE.AnimationClip.parseAnimation(
+                                splitAnimation(animateObj, 'dashing', 160 * animateObj.fps, 165 *
+                                    animateObj.fps), Models[0].skeleton.bones));
+                            Models[0].geometry.animations.push(THREE.AnimationClip.parseAnimation(
+                                splitAnimation(animateObj, 'damage', 500 * animateObj.fps, 530 *
+                                    animateObj.fps), Models[0].skeleton.bones));
+
+                            Models[0].mixer = new THREE.AnimationMixer(Models[0]);
+                            animates.push(Models[0].mixer);
+
+                            var stand = Models[0].mixer.clipAction('stand');
+                            // stand.play();
+                            stand.setLoop(THREE.LoopRepeat);
+                            actions['stand'] = stand;
+
+                            var walk = Models[0].mixer.clipAction('walk');
+                            walk.setLoop(THREE.LoopRepeat);
+                            walk.play();
+                            actions['walk'] = walk;
+
+                            var dash = Models[0].mixer.clipAction('dash');
+                            dash.setLoop(THREE.LoopOnce);
+                            //dash.play();
+                            actions['dash'] = dash;
+
+                            var dashing = Models[0].mixer.clipAction('dashing');
+                            dashing.setLoop(THREE.LoopPingPong);
+                            // dashing.play();
+                            actions['dashing'] = dashing;
+
+                            var damage = Models[0].mixer.clipAction('damage');
+                            damage.setLoop(THREE.LoopRepeat);
+                            //damage.play();
+                            actions['damage'] = damage;
+                            var ActionKeys = Object.keys(actions);
+                            var dmy = {};
+                            dmy.action = "";
+                            gui.add(dmy, 'action', ActionKeys).onChange(function (v) {
+                                animates[0].stopAllAction();
+                                actions[v].play();
+                            });
+                        }
+                    }
+                }, onProgress, onError);
                 object = null;
             }, onProgress, onError);
 
@@ -226,6 +228,7 @@
             animate();
 
         }
+
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -246,13 +249,16 @@
             }
 
             if (Models != null && Models.length > 0) {
-                if (skeletonHelper != null) { skeletonHelper.update(); }
+                if (skeletonHelper != null) {
+                    skeletonHelper.update();
+                }
 
             }
 
             stats.update();
             render();
         }
+
         function render() {
             //renderer.setFaceCulling(THREE.CullFaceFront, THREE.FrontFaceDirectionCW);
             renderer.render(scene, camera);
@@ -283,7 +289,8 @@
                         }
                         frame.keys.push(_baseAnime.hierarchy[i].keys[m]);
                     }
-                    if (_endTime <= _baseAnime.hierarchy[i].keys[m].time || m >= _baseAnime.hierarchy[i].keys.length - 1) {
+                    if (_endTime <= _baseAnime.hierarchy[i].keys[m].time || m >= _baseAnime.hierarchy[i].keys.length -
+                        1) {
                         break;
                     }
                 }

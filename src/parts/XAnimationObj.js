@@ -19,6 +19,10 @@ export default class XAnimationObj {
         this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
     }
 
+    clone(){
+       return Object.assign({}, this);
+    }
+
     _make(XAnimationInfoArray, mesh) {
 
         const keys = Object.keys(XAnimationInfoArray);
@@ -75,6 +79,7 @@ export default class XAnimationObj {
         refObj.name = XAnimationInfo.boneName;
         refObj.parent = "";
         refObj.keys = this.keyFrameRefactor(XAnimationInfo);
+        refObj.copy = function(){return Object.assign({}, this);};
         return refObj;
 
     }

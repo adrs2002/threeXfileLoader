@@ -1,7 +1,5 @@
 xof 0303txt 0032
 
-AnimTicksPerSecond { 30; }
-
 template XSkinMeshHeader {
  <3cf169ce-ff7c-44ab-93c0-f78f62d172e2>
  WORD nMaxSkinWeightsPerVertex;

@@ -923,6 +923,14 @@ export default class XLoader {
         if (this.currentGeo.BoneInfs.length > 0) {
             //さらに、ウェイトとボーン情報を紐付ける
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
+                // ズレているskinWeightのボーンと、頂点のないボーン情報とのすり合わせ
+                let boneIndex = 0;
+                for(let bb =0; bb < this.currentGeo.putBones.length;bb++){
+                    if(this.currentGeo.putBones[bb].name ===this.currentGeo.BoneInfs[bi].boneName){
+                        boneIndex = bb;
+                        break;
+                    }
+                }
 
                 //ウェイトのあるボーンであることが確定。頂点情報を割り当てる
                 for (let vi = 0; vi < this.currentGeo.BoneInfs[bi].Indeces.length; vi++) {
@@ -932,19 +940,19 @@ export default class XLoader {
 
                     switch (this.currentGeo.VertexSetedBoneCount[nowVertexID]) {
                         case 0:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
                             break;
                         case 1:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
                             break;
                         case 2:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].z = nowVal;
                             break;
                         case 3:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
                             break;
                     }
@@ -1056,6 +1064,50 @@ export default class XLoader {
 
     }
 
+    /**
+     * 
+     * @param { THREE.Mesh } _model 
+     * @param { XAnimationObj } _animation
+     */
+    assignAnimation(_model, _animation) {
+        let model = _model;
+        let animation = _animation;
+        if (!model) {
+            model = this.Meshes[0];
+        }
+        if (!animation) {
+            animation = this.Animations[0];
+        }
+
+        const put = {};
+        put.fps = animation.fps;
+        put.name = animation.name;
+        put.length = animation.length;
+        put.hierarchy = [];
+        for (let b = 0; b < model.skeleton.bones.length; b++) {
+            for (let i = 0; i < animation.hierarchy.length; i++) {
+                if (model.skeleton.bones[b].name === animation.hierarchy[i].name) {
+                    const c_key = animation.hierarchy[i].copy();
+                    c_key.parent = -1;
+                    if (model.skeleton.bones[b].parent && model.skeleton.bones[b].parent.type === "Bone") {
+                        for (let bb = 0; bb < put.hierarchy.length; bb++) {
+                            if (put.hierarchy[bb].name === model.skeleton.bones[b].parent.name) {
+                                c_key.parent = bb;
+                                c_key.parentName = model.skeleton.bones[b].parent.name;
+                                break;
+                            }
+                        }
+                    }
+
+                    put.hierarchy.push(c_key);
+                    break;
+                }
+            }
+        }
+        return put;
+    }
+
+
     readFinalize() {
         //アニメーション情報、ボーン構造などを再構築
 
@@ -1086,7 +1138,6 @@ export default class XLoader {
             parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
 
     }
-
 
     /////////////////// old logic /////////////////
 

@@ -50,6 +50,9 @@ class XAnimationObj {
         }
         this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
     }
+    clone(){
+       return Object.assign({}, this);
+    }
     _make(XAnimationInfoArray, mesh) {
         const keys = Object.keys(XAnimationInfoArray);
         const hierarchy_tmp = [];
@@ -85,6 +88,7 @@ class XAnimationObj {
         refObj.name = XAnimationInfo.boneName;
         refObj.parent = "";
         refObj.keys = this.keyFrameRefactor(XAnimationInfo);
+        refObj.copy = function(){return Object.assign({}, this);};
         return refObj;
     }
     keyFrameRefactor(XAnimationInfo) {
@@ -779,24 +783,31 @@ class XLoader {
         const bufferGeometry = new THREE.BufferGeometry();
         if (this.currentGeo.BoneInfs.length > 0) {
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
+                let boneIndex = 0;
+                for(let bb =0; bb < this.currentGeo.putBones.length;bb++){
+                    if(this.currentGeo.putBones[bb].name ===this.currentGeo.BoneInfs[bi].boneName){
+                        boneIndex = bb;
+                        break;
+                    }
+                }
                 for (let vi = 0; vi < this.currentGeo.BoneInfs[bi].Indeces.length; vi++) {
                     const nowVertexID = this.currentGeo.BoneInfs[bi].Indeces[vi];
                     const nowVal = this.currentGeo.BoneInfs[bi].Weights[vi];
                     switch (this.currentGeo.VertexSetedBoneCount[nowVertexID]) {
                         case 0:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].x = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
                             break;
                         case 1:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].y = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
                             break;
                         case 2:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].z = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].z = nowVal;
                             break;
                         case 3:
-                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = bi;
+                            this.currentGeo.Geometry.skinIndices[nowVertexID].w = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
                             break;
                     }
@@ -844,6 +855,41 @@ class XLoader {
         animationObj.name = this.currentAnime.name;
         animationObj.make(this.currentAnime.AnimeFrames);
         this.Animations.push(animationObj);
+    }
+    assignAnimation(_model, _animation) {
+        let model = _model;
+        let animation = _animation;
+        if (!model) {
+            model = this.Meshes[0];
+        }
+        if (!animation) {
+            animation = this.Animations[0];
+        }
+        const put = {};
+        put.fps = animation.fps;
+        put.name = animation.name;
+        put.length = animation.length;
+        put.hierarchy = [];
+        for (let b = 0; b < model.skeleton.bones.length; b++) {
+            for (let i = 0; i < animation.hierarchy.length; i++) {
+                if (model.skeleton.bones[b].name === animation.hierarchy[i].name) {
+                    const c_key = animation.hierarchy[i].copy();
+                    c_key.parent = -1;
+                    if (model.skeleton.bones[b].parent && model.skeleton.bones[b].parent.type === "Bone") {
+                        for (let bb = 0; bb < put.hierarchy.length; bb++) {
+                            if (put.hierarchy[bb].name === model.skeleton.bones[b].parent.name) {
+                                c_key.parent = bb;
+                                c_key.parentName = model.skeleton.bones[b].parent.name;
+                                break;
+                            }
+                        }
+                    }
+                    put.hierarchy.push(c_key);
+                    break;
+                }
+            }
+        }
+        return put;
     }
     readFinalize() {
     }
