@@ -13,14 +13,14 @@ export default class XAnimationObj {
     }
 
     make(XAnimationInfoArray) {
-        for(let i =0; i < XAnimationInfoArray.length;i++){
+        for (let i = 0; i < XAnimationInfoArray.length; i++) {
             this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[i]));
         }
-        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
+        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length - 1].time;
     }
 
-    clone(){
-       return Object.assign({}, this);
+    clone() {
+        return Object.assign({}, this);
     }
 
     _make(XAnimationInfoArray, mesh) {
@@ -79,20 +79,35 @@ export default class XAnimationObj {
         refObj.name = XAnimationInfo.boneName;
         refObj.parent = "";
         refObj.keys = this.keyFrameRefactor(XAnimationInfo);
-        refObj.copy = function(){return Object.assign({}, this);};
+        refObj.copy = function () {
+            return Object.assign({}, this);
+        };
         return refObj;
 
     }
 
     keyFrameRefactor(XAnimationInfo) {
+
+        // posだけは検知が容易なので、ホントに変更する必要があるかどうかチェックする
+        let posOutFlg = false;
+        for (let i = 1; i < XAnimationInfo.keyFrames.length; i++) {
+            if (XAnimationInfo.keyFrames[0].matrix.elements[12] != XAnimationInfo.keyFrames[i].matrix.elements[12] ||
+                XAnimationInfo.keyFrames[0].matrix.elements[13] != XAnimationInfo.keyFrames[i].matrix.elements[13] ||
+                XAnimationInfo.keyFrames[0].matrix.elements[14] != XAnimationInfo.keyFrames[i].matrix.elements[14]) {
+                posOutFlg = true;
+                break;
+            }
+        }
+
         const keys = [];
         for (let i = 0; i < XAnimationInfo.keyFrames.length; i++) {
 
             const keyframe = {};
             keyframe.time = XAnimationInfo.keyFrames[i].time * this.fps;
             keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;
-
-            keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
+            if (posOutFlg) {
+                keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
+            }
             keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
             keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
             keys.push(keyframe);
