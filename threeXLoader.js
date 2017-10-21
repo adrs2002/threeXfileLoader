@@ -147,8 +147,8 @@ class XKeyFrameInfo {
 class XLoader {
     constructor(manager, Texloader, _zflg) {
         this.debug = false;
-        this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
-        this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
+        this.manager = (manager != null) ? manager : new THREE.DefaultLoadingManager();
+        this.Texloader = (Texloader != null) ? Texloader : new THREE.TextureLoader();
         this.zflg = (_zflg === undefined) ? false : _zflg;
         this.url = "";
         this.baseDir = "";
@@ -179,6 +179,8 @@ class XLoader {
         this.currentGeo = null;
         this.currentAnime = null;
         this.currentAnimeFrames = null;
+        this.texCount = 0;
+        this.readedTexCount = 0;
     }
     load(_arg, onLoad, onProgress, onError) {
         const loader = new THREE.FileLoader(this.manager);
@@ -325,12 +327,7 @@ class XLoader {
             }
         } else {
             this.readFinalize();
-            setTimeout(() => {
-                this.onLoad({
-                    models: this.Meshes,
-                    animations: this.Animations
-                });
-            }, 1);
+            this.returnLoop();
         }
     }
     mainProc() {
@@ -722,26 +719,43 @@ class XLoader {
                     console.log('processing ' + localObject.name);
                 }
                 const fileName = localObject.data.substr(1, localObject.data.length - 2);
-                switch (localObject.type) {
+               switch (localObject.type) {
                     case "TextureFilename":
-                        nowMat.map = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => {
+                            nowMat.map = texture;
+                            this.readedTexCount++;
+                          });
                         break;
                     case "BumpMapFilename":
-                        nowMat.bumpMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => {
+                            nowMat.bumpMap = texture;
+                            this.readedTexCount++;
+                          });
                         nowMat.bumpScale = 0.05;
                         break;
                     case "NormalMapFilename":
-                        nowMat.normalMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => {
+                            nowMat.normalMap = texture;
+                            this.readedTexCount++;
+                          });
                         nowMat.normalScale = new THREE.Vector2(2, 2);
                         break;
                     case "EmissiveMapFilename":
-                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => {
+                            nowMat.emissiveMap = texture;
+                            this.readedTexCount++;
+                          });
                         break;
                     case "LightMapFilename":
-                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
-                        break;
-                    case "LightMapFilename":
-                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => {
+                            nowMat.lightMap = texture;
+                            this.readedTexCount++;
+                          });
                         break;
                 }
             } else {
@@ -914,6 +928,16 @@ class XLoader {
                 this.Meshes[i].scale.set(-1, 1, 1);
                 this.Meshes[i].rotation.y = Math.PI;
             }
+        }
+    }
+    returnLoop(){
+        if(this.texCount <= this.readedTexCount){
+            this.onLoad({
+                models: this.Meshes,
+                animations: this.Animations
+            });
+        } else {
+            setTimeout(() => {this.returnLoop();}, 100);
         }
     }
     ParseMatrixData(targetMatrix, data) {

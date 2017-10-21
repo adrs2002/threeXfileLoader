@@ -133,6 +133,9 @@ export default class XLoader {
         this.currentGeo = null;
         this.currentAnime = null;
         this.currentAnimeFrames = null;
+
+        this.texCount = 0;
+        this.readedTexCount = 0;
     }
 
     //読み込み開始命令部
@@ -346,12 +349,7 @@ export default class XLoader {
             }
         } else {
             this.readFinalize();
-            setTimeout(() => {
-                this.onLoad({
-                    models: this.Meshes,
-                    animations: this.Animations
-                })
-            }, 1);
+            this.returnLoop();
         }
     }
 
@@ -824,29 +822,45 @@ export default class XLoader {
                     console.log('processing ' + localObject.name);
                 }
                 const fileName = localObject.data.substr(1, localObject.data.length - 2);
-                switch (localObject.type) {
+               switch (localObject.type) {
                     case "TextureFilename":
-                        nowMat.map = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;        
+                        this.Texloader.load(this.baseDir + fileName,  texture => { // onLoad
+                            nowMat.map = texture;
+                            this.readedTexCount++;
+                          });            
                         break;
                     case "BumpMapFilename":
-                        nowMat.bumpMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => { // onLoad
+                            nowMat.bumpMap = texture;
+                            this.readedTexCount++;
+                          });
                         nowMat.bumpScale = 0.05;
                         break;
                     case "NormalMapFilename":
-                        nowMat.normalMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => { // onLoad
+                            nowMat.normalMap = texture;
+                            this.readedTexCount++;
+                          });  
                         nowMat.normalScale = new THREE.Vector2(2, 2);
                         break;
                     case "EmissiveMapFilename":
-                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => { // onLoad
+                            nowMat.emissiveMap = texture;
+                            this.readedTexCount++;
+                          });  
                         break;
                     case "LightMapFilename":
-                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
+                        this.texCount++;
+                        this.Texloader.load(this.baseDir + fileName,  texture => { // onLoad
+                            nowMat.lightMap = texture;
+                            this.readedTexCount++;
+                          });  
                         break;
-                    case "LightMapFilename":
-                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
-                        break;
-
-                        // nowMat.envMap = this.Texloader.load(this.baseDir + data);
+                        
                 }
             } else {
                 break;
@@ -1121,7 +1135,17 @@ export default class XLoader {
         }
     }
 
-    ///
+    
+    returnLoop(){
+        if(this.texCount <= this.readedTexCount){
+            this.onLoad({
+                models: this.Meshes,
+                animations: this.Animations
+            });        
+        } else {
+            setTimeout(() => {this.returnLoop()}, 100);
+        }
+    }
 
     /////////////////////////////////
     ParseMatrixData(targetMatrix, data) {
