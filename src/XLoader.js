@@ -85,8 +85,8 @@ export default class XLoader {
         };
         */
 
-        this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
-        this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
+        this.manager = (manager != null) ? manager : new THREE.DefaultLoadingManager();
+        this.Texloader = (Texloader != null) ? Texloader : new THREE.TextureLoader();
         this.zflg = (_zflg === undefined) ? false : _zflg;
 
         this.url = "";
