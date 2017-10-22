@@ -499,6 +499,7 @@ export default class XLoader {
     }
 
     makeBoneFromCurrentFrame() {
+        if(!this.currentFrame || !this.currentFrame.name) { return; }
         const b = new THREE.Bone();
         b.name = this.currentFrame.name;
         b.applyMatrix(this.currentFrame.FrameTransformMatrix);
