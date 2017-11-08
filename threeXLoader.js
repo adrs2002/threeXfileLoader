@@ -45,13 +45,13 @@ class XAnimationObj {
         this.hierarchy = [];
     }
     make(XAnimationInfoArray) {
-        for (let i = 0; i < XAnimationInfoArray.length; i++) {
+        for(let i =0; i < XAnimationInfoArray.length;i++){
             this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[i]));
         }
-        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length - 1].time;
+        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
     }
-    clone() {
-        return Object.assign({}, this);
+    clone(){
+       return Object.assign({}, this);
     }
     _make(XAnimationInfoArray, mesh) {
         const keys = Object.keys(XAnimationInfoArray);
@@ -88,49 +88,21 @@ class XAnimationObj {
         refObj.name = XAnimationInfo.boneName;
         refObj.parent = "";
         refObj.keys = this.keyFrameRefactor(XAnimationInfo);
-        refObj.copy = function () {
-            return Object.assign({}, this);
-        };
+        refObj.copy = function(){return Object.assign({}, this);};
         return refObj;
     }
     keyFrameRefactor(XAnimationInfo) {
-        let posOutFlg = false;
-        for (let i = 1; i < XAnimationInfo.keyFrames.length; i++) {
-            if (XAnimationInfo.keyFrames[0].matrix.elements[12] != XAnimationInfo.keyFrames[i].matrix.elements[12] ||
-                XAnimationInfo.keyFrames[0].matrix.elements[13] != XAnimationInfo.keyFrames[i].matrix.elements[13] ||
-                XAnimationInfo.keyFrames[0].matrix.elements[14] != XAnimationInfo.keyFrames[i].matrix.elements[14]) {
-                posOutFlg = true;
-                break;
-            }
-        }
         const keys = [];
         for (let i = 0; i < XAnimationInfo.keyFrames.length; i++) {
             const keyframe = {};
             keyframe.time = XAnimationInfo.keyFrames[i].time * this.fps;
             keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;
-            if (posOutFlg) {
-                keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
-            }
+            keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
             keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
             keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
             keys.push(keyframe);
         }
         return keys;
-    }
-}
-
-class XFrameInfo {
-    constructor() {
-        this.Mesh = null;
-        this.Geometry = null;
-        this.FrameName = "";
-        this.ParentName = "";
-        this.frameStartLv = 0;
-        this.FrameTransformMatrix = null;
-        this.children = [];
-        this.BoneInfs = [];
-        this.VertexSetedBoneCount = [];
-        this.Materials = [];
     }
 }
 
@@ -146,9 +118,9 @@ class XKeyFrameInfo {
 "use strict";
 class XLoader {
     constructor(manager, Texloader, _zflg) {
-        this.debug = false;
-        this.manager = (manager != null) ? manager : new THREE.DefaultLoadingManager();
-        this.Texloader = (Texloader != null) ? Texloader : new THREE.TextureLoader();
+        this.debug = true;
+        this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
+        this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
         this.zflg = (_zflg === undefined) ? false : _zflg;
         this.url = "";
         this.baseDir = "";
@@ -157,7 +129,6 @@ class XLoader {
         this.nowMat = null;
         this.tmpUvArray = [];
         this.facesNormal = [];
-        this.normalReadFlag = false;
         this.nowFrameName = "";
         this.nowAnimationSetName = "";
         this.frameHierarchie = [];
@@ -179,8 +150,6 @@ class XLoader {
         this.currentGeo = null;
         this.currentAnime = null;
         this.currentAnimeFrames = null;
-        this.texCount = 0;
-        this.readedTexCount = 0;
     }
     load(_arg, onLoad, onProgress, onError) {
         const loader = new THREE.FileLoader(this.manager);
@@ -198,6 +167,33 @@ class XLoader {
         loader.load(this.url, (response) => {
             this.parse(response, onLoad);
         }, onProgress, onError);
+    }
+    readLine(line) {
+        let readed = 0;
+        while (true) {
+            let find = -1;
+            find = line.indexOf('//', readed);
+            if (find === -1) {
+                find = line.indexOf('#', readed);
+            }
+            if (find > -1 && find < 2) {
+                let foundNewLine = -1;
+                foundNewLine = line.indexOf("\r\n", readed);
+                if (foundNewLine > 0) {
+                    readed = foundNewLine + 2;
+                } else {
+                    foundNewLine = line.indexOf("\r", readed);
+                    if (foundNewLine > 0) {
+                        readed = foundNewLine + 1;
+                    } else {
+                        readed = line.indexOf("\n", readed) + 1;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        return line.substr(readed);
     }
     isBinary(binData) {
         const reader = new DataView(binData);
@@ -257,7 +253,8 @@ class XLoader {
         let endRead = 16;
         this.Hierarchies.children = [];
         this.HierarchieParse(this.Hierarchies, endRead);
-        this.currentObject = this.Hierarchies;
+        this.changeRoot();
+        this.currentObject = this.Hierarchies.children.shift();
         this.mainloop();
     }
     HierarchieParse(_parent, _end) {
@@ -269,7 +266,7 @@ class XLoader {
             if (find1 > 0 && findEnd > find1) {
                 const currentObject = {};
                 currentObject.children = [];
-                const nameData = this.data.substr(endRead, find1 - endRead - 1).trim();
+                const nameData = this.readLine(this.data.substr(endRead, find1 - endRead - 1)).trim();
                 const word = nameData.split(/ /g);
                 if (word.length > 0) {
                     currentObject.type = word[0];
@@ -315,11 +312,10 @@ class XLoader {
     }
     mainloop() {
         const timeoutFlag = this.mainProc();
-        if (this.currentObject.parent) {
-            this.currentObject = this.currentObject.parent;
+        if (this.currentObject.parent || this.currentObject.children.length > 0 || !this.currentObject.worked) {
             if (timeoutFlag) {
                 setTimeout(() => {
-                    if (this.debug) {console.log(' == break === ');}
+                    console.log(' == break === ');
                     this.mainloop();
                 }, 1);
             } else {
@@ -327,17 +323,18 @@ class XLoader {
             }
         } else {
             this.readFinalize();
-            this.returnLoop();
+            setTimeout(() => {
+                this.onLoad({
+                    models: this.Meshes,
+                    animations: this.Animations
+                });
+            }, 1);
         }
     }
     mainProc() {
         let ref_timeout = false;
         while (true) {
-            if (this.currentObject.children.length > 0) {
-                this.currentObject = this.currentObject.children.shift();
-                if (this.debug) {
-                    console.log('processing ' + this.currentObject.name);
-                }
+            if (!this.currentObject.worked) {
                 switch (this.currentObject.type) {
                     case "template":
                         break;
@@ -353,13 +350,12 @@ class XLoader {
                         this.changeRoot();
                         this.currentGeo = {};
                         this.currentGeo.name = this.currentObject.name.trim();
-                        this.currentGeo.ParentName = this.getParentName(this.currentObject).trim();
+                        this.currentGeo.parentName = this.getParentName(this.currentObject).trim();
                         this.currentGeo.VertexSetedBoneCount = [];
                         this.currentGeo.Geometry = new THREE.Geometry();
                         this.currentGeo.Materials = [];
                         this.currentGeo.normalVectors = [];
                         this.currentGeo.BoneInfs = [];
-                        this.currentGeo.putBones = [];
                         this.currentGeo.baseFrame = this.currentFrame;
                         this.makeBoneFromCurrentFrame();
                         this.readVertexDatas();
@@ -367,7 +363,6 @@ class XLoader {
                         break;
                     case "MeshNormals":
                         this.readVertexDatas();
-                        this.normalReadFlag = true;
                         break;
                     case "MeshTextureCoords":
                         this.setMeshTextureCoords();
@@ -390,6 +385,9 @@ class XLoader {
                         this.currentAnime.AnimeFrames = [];
                         break;
                     case "Animation":
+                        if (this.currentAnimeFrames) {
+                            this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
+                        }
                         this.currentAnimeFrames = new XAnimationInfo();
                         this.currentAnimeFrames.boneName = this.currentObject.data.trim();
                         break;
@@ -398,9 +396,24 @@ class XLoader {
                         ref_timeout = true;
                         break;
                 }
+                this.currentObject.worked = true;
+            }
+            if (this.currentObject.children.length > 0) {
+                this.currentObject = this.currentObject.children.shift();
+                if (this.debug) {
+                    console.log('processing ' + this.currentObject.name);
+                }
+                break;
             } else {
-                if (this.currentObject.parent && !this.currentObject.parent.parent) {
-                    this.changeRoot();
+                if(this.currentObject.worked){
+                    if(this.currentObject.parent && !this.currentObject.parent.parent){
+                        this.changeRoot();
+                    }
+                }
+                if (this.currentObject.parent){
+                    this.currentObject = this.currentObject.parent;
+                } else {
+                    ref_timeout = true;
                 }
                 break;
             }
@@ -410,12 +423,16 @@ class XLoader {
     changeRoot() {
         if (this.currentGeo != null && this.currentGeo.name) {
             this.MakeOutputGeometry();
-            this.currentGeo = {};
         }
+        this.currentGeo = {};
         if (this.currentAnime != null && this.currentAnime.name) {
+            if (this.currentAnimeFrames) {
+                this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
+                this.currentAnimeFrames = null;
+            }
             this.MakeOutputAnimation();
-            this.currentAnime = {};
         }
+        this.currentAnime = {};
     }
     getParentName(_obj) {
         if (_obj.parent) {
@@ -443,9 +460,7 @@ class XLoader {
         this.currentFrame.FrameTransformMatrix = new THREE.Matrix4();
         const data = this.currentObject.data.split(",");
         this.ParseMatrixData(this.currentFrame.FrameTransformMatrix, data);
-        if (this.currentGeo != null && this.currentGeo.putBones) {
-            this.makeBoneFromCurrentFrame();
-        }
+        this.makeBoneFromCurrentFrame();
     }
     makeBoneFromCurrentFrame() {
         const b = new THREE.Bone();
@@ -453,12 +468,11 @@ class XLoader {
         b.applyMatrix(this.currentFrame.FrameTransformMatrix);
         b.matrixWorld = b.matrix;
         b.FrameTransformMatrix = this.currentFrame.FrameTransformMatrix;
-        this.currentGeo.putBones.push(b);
+        this.currentFrame.putBone = b;
         if (this.currentFrame.parentName) {
-            for (let i = 0; i < this.currentGeo.putBones.length; i++) {
-                if (this.currentGeo.putBones[i].name === this.currentFrame.parentName) {
-                    this.currentGeo.putBones[i].add(this.currentGeo.putBones[this.currentGeo.putBones.length - 1]);
-                    break;
+            for(var frame in this.HieStack){
+                if(this.HieStack[frame].name === this.currentFrame.parentName){
+                    this.HieStack[frame].putBone.add(this.currentFrame.putBone);
                 }
             }
         }
@@ -536,14 +550,14 @@ class XLoader {
         };
     }
     readVertex1(line) {
-        const data = line.trim().substr(0, line.length - 2).split(";");
+        const data = this.readLine(line.trim()).substr(0, line.length - 2).split(";");
         this.currentGeo.Geometry.vertices.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
         this.currentGeo.Geometry.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
         this.currentGeo.Geometry.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
         this.currentGeo.VertexSetedBoneCount.push(0);
     }
     readFace1(line) {
-        const data = line.trim().substr(2, line.length - 4).split(",");
+        const data = this.readLine(line.trim()).substr(2, line.length - 4).split(",");
         if (this.zflg) {
             this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
         } else {
@@ -551,11 +565,11 @@ class XLoader {
         }
     }
     readNormalVector1(line) {
-        const data = line.trim().substr(0, line.length - 2).split(";");
+        const data = this.readLine(line.trim()).substr(0, line.length - 2).split(";");
         this.currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
     }
     readNormalFace1(line, nowReaded) {
-        const data = line.trim().substr(2, line.length - 4).split(",");
+        const data = this.readLine(line.trim()).substr(2, line.length - 4).split(",");
         let nowID = parseInt(data[0], 10);
         const v1 = this.currentGeo.normalVectors[nowID];
         nowID = parseInt(data[1], 10);
@@ -587,7 +601,7 @@ class XLoader {
                             mode_local = 0;
                         }
                         const line = this.currentObject.data.substr(endRead, find - endRead);
-                        const data = line.trim().split(";");
+                        const data = this.readLine(line.trim()).split(";");
                         this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
                         endRead = find + 1;
                     }
@@ -620,7 +634,7 @@ class XLoader {
                             mode_local = 0;
                         }
                         const line = this.currentObject.data.substr(endRead, find - endRead);
-                        const data = line.trim().split(";");
+                        const data = this.readLine(line.trim()).split(";");
                         if (this.IsUvYReverse) {
                             this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
                         } else {
@@ -661,7 +675,7 @@ class XLoader {
                     mode_local = 0;
                 }
                 const line = this.currentObject.data.substr(endRead, find - endRead);
-                const data = line.trim().split(",");
+                const data = this.readLine(line.trim()).split(",");
                 for (let i = 0; i < data.length; i++) {
                     this.currentGeo.Geometry.faces[i].materialIndex = parseInt(data[i]);
                 }
@@ -686,18 +700,18 @@ class XLoader {
         let endRead = 0;
         let find = this.currentObject.data.indexOf(';;', endRead);
         let line = this.currentObject.data.substr(endRead, find - endRead);
-        const data = line.trim().split(";");
+        const data = this.readLine(line.trim()).split(";");
         nowMat.color.r = parseFloat(data[0]);
         nowMat.color.g = parseFloat(data[1]);
         nowMat.color.b = parseFloat(data[2]);
         endRead = find + 2;
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
-        nowMat.shininess = parseFloat(line);
+        nowMat.shininess = parseFloat(this.readLine(line));
         endRead = find + 1;
         find = this.currentObject.data.indexOf(';;', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
-        const data2 = line.trim().split(";");
+        const data2 = this.readLine(line.trim()).split(";");
         nowMat.specular.r = parseFloat(data2[0]);
         nowMat.specular.g = parseFloat(data2[1]);
         nowMat.specular.b = parseFloat(data2[2]);
@@ -707,7 +721,7 @@ class XLoader {
             find = this.currentObject.data.length;
         }
         line = this.currentObject.data.substr(endRead, find - endRead);
-        const data3 = line.trim().split(";");
+        const data3 = this.readLine(line.trim()).split(";");
         nowMat.emissive.r = parseFloat(data3[0]);
         nowMat.emissive.g = parseFloat(data3[1]);
         nowMat.emissive.b = parseFloat(data3[2]);
@@ -719,43 +733,26 @@ class XLoader {
                     console.log('processing ' + localObject.name);
                 }
                 const fileName = localObject.data.substr(1, localObject.data.length - 2);
-               switch (localObject.type) {
+                switch (localObject.type) {
                     case "TextureFilename":
-                        this.texCount++;
-                        this.Texloader.load(this.baseDir + fileName,  texture => {
-                            nowMat.map = texture;
-                            this.readedTexCount++;
-                          });
+                        nowMat.map = this.Texloader.load(this.baseDir + fileName);
                         break;
                     case "BumpMapFilename":
-                        this.texCount++;
-                        this.Texloader.load(this.baseDir + fileName,  texture => {
-                            nowMat.bumpMap = texture;
-                            this.readedTexCount++;
-                          });
+                        nowMat.bumpMap = this.Texloader.load(this.baseDir + fileName);
                         nowMat.bumpScale = 0.05;
                         break;
                     case "NormalMapFilename":
-                        this.texCount++;
-                        this.Texloader.load(this.baseDir + fileName,  texture => {
-                            nowMat.normalMap = texture;
-                            this.readedTexCount++;
-                          });
+                        nowMat.normalMap = this.Texloader.load(this.baseDir + fileName);
                         nowMat.normalScale = new THREE.Vector2(2, 2);
                         break;
                     case "EmissiveMapFilename":
-                        this.texCount++;
-                        this.Texloader.load(this.baseDir + fileName,  texture => {
-                            nowMat.emissiveMap = texture;
-                            this.readedTexCount++;
-                          });
+                        nowMat.emissiveMap = this.Texloader.load(this.baseDir + fileName);
                         break;
                     case "LightMapFilename":
-                        this.texCount++;
-                        this.Texloader.load(this.baseDir + fileName,  texture => {
-                            nowMat.lightMap = texture;
-                            this.readedTexCount++;
-                          });
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
+                        break;
+                    case "LightMapFilename":
+                        nowMat.lightMap = this.Texloader.load(this.baseDir + fileName);
                         break;
                 }
             } else {
@@ -776,14 +773,14 @@ class XLoader {
         endRead = find + 1;
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
-        const data = line.trim().split(",");
+        const data = this.readLine(line.trim()).split(",");
         for (let i = 0; i < data.length; i++) {
             boneInf.Indeces.push(parseInt(data[i]));
         }
         endRead = find + 1;
         find = this.currentObject.data.indexOf(';', endRead);
         line = this.currentObject.data.substr(endRead, find - endRead);
-        const data2 = line.trim().split(",");
+        const data2 = this.readLine(line.trim()).split(",");
         for (let i = 0; i < data2.length; i++) {
             boneInf.Weights.push(parseFloat(data2[i]));
         }
@@ -793,26 +790,54 @@ class XLoader {
             find = this.currentObject.data.length;
         }
         line = this.currentObject.data.substr(endRead, find - endRead);
-        const data3 = line.trim().split(",");
+        const data3 = this.readLine(line.trim()).split(",");
         boneInf.initMatrix = new THREE.Matrix4();
         this.ParseMatrixData(boneInf.initMatrix, data3);
         boneInf.OffsetMatrix = new THREE.Matrix4();
         boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
         this.currentGeo.BoneInfs.push(boneInf);
     }
+    makePutBoneList(startBone, ref){
+        for(let i =0; i < ref.length;i++){
+            if(ref[i].name === startBone){
+                return;
+            }
+        }
+        for(var frame in this.HieStack){
+            if(this.HieStack[frame].name === startBone){
+                const b = new THREE.Bone();
+                b.name = startBone;
+                b.applyMatrix(this.HieStack[frame].FrameTransformMatrix);
+                b.matrixWorld = b.matrix;
+                b.FrameTransformMatrix = this.HieStack[frame].FrameTransformMatrix;
+                ref.push(b);
+                if(this.HieStack[frame].putBone.children && this.HieStack[frame].putBone.children.length > 0){
+                    for(let i =0; i < this.HieStack[frame].putBone.children.length;i++ ){
+                        this.makePutBoneList(this.HieStack[frame].putBone.children[i].name, ref);
+                        for(let m=0; m < ref.length;m++){
+                            if(ref[m].name === this.HieStack[frame].putBone.children[i].name){
+                                b.add(ref[m]);
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
     MakeOutputGeometry() {
         this.currentGeo.Geometry.computeBoundingBox();
         this.currentGeo.Geometry.computeBoundingSphere();
         this.currentGeo.Geometry.verticesNeedUpdate = true;
-        if(!this.normalReadFlag){
-            this.currentGeo.Geometry.normalsNeedUpdate = true;
-        }
+        this.currentGeo.Geometry.normalsNeedUpdate = true;
         this.currentGeo.Geometry.colorsNeedUpdate = true;
         this.currentGeo.Geometry.uvsNeedUpdate = true;
         this.currentGeo.Geometry.groupsNeedUpdate = true;
         let mesh = null;
         const bufferGeometry = new THREE.BufferGeometry();
         if (this.currentGeo.BoneInfs.length > 0) {
+            this.currentGeo.putBones = [];
+            this.makePutBoneList(this.currentGeo.baseFrame.parentName,  this.currentGeo.putBones );
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
                 let boneIndex = 0;
                 for (let bb = 0; bb < this.currentGeo.putBones.length; bb++) {
@@ -843,6 +868,9 @@ class XLoader {
                             break;
                     }
                     this.currentGeo.VertexSetedBoneCount[nowVertexID]++;
+                    if(this.currentGeo.VertexSetedBoneCount[nowVertexID] > 4){
+                        console.log('warn! over 4 bone weight! :');
+                    }
                 }
             }
             for (let sk = 0; sk < this.currentGeo.Materials.length; sk++) {
@@ -863,22 +891,52 @@ class XLoader {
         let find = this.currentObject.data.indexOf(';', endRead);
         let line = this.currentObject.data.substr(endRead, find - endRead);
         endRead = find + 1;
-        this.currentAnimeFrames.keyType = parseInt(line);
+        let nowKeyType = parseInt(this.readLine(line));
         find = this.currentObject.data.indexOf(';', endRead);
         endRead = find + 1;
         line = this.currentObject.data.substr(endRead);
-        const data = line.trim().split(";;,");
+        const data = this.readLine(line.trim()).split(";;,");
         for (let i = 0; i < data.length; i++) {
             const data2 = data[i].split(";");
-            const keyInfo = new XKeyFrameInfo();
-            keyInfo.matrix = new THREE.Matrix4();
+            let keyInfo = new XKeyFrameInfo();
+            keyInfo.type = nowKeyType;
             keyInfo.Frame = parseInt(data2[0]);
-            this.ParseMatrixData(keyInfo.matrix, data2[2].split(","));
             keyInfo.index = this.currentAnimeFrames.keyFrames.length;
             keyInfo.time = keyInfo.Frame;
-            this.currentAnimeFrames.keyFrames.push(keyInfo);
+            keyInfo.matrix = new THREE.Matrix4();
+            if (nowKeyType != 4) {
+                let frameFound = false;
+                for (var mm = 0; mm < this.currentAnimeFrames.keyFrames.length; mm++) {
+                    if (this.currentAnimeFrames.keyFrames[mm].Frame === keyInfo.Frame) {
+                        keyInfo = this.currentAnimeFrames.keyFrames[mm];
+                        frameFound = true;
+                        break;
+                    }
+                }
+                const frameValue = data2[2].split(",");
+                const frameM = new THREE.Matrix4();
+                switch (nowKeyType) {
+                    case 0:
+                        frameM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0])));
+                        keyInfo.matrix.multiply(frameM);
+                        break;
+                    case 1:
+                        frameM.makeScale(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
+                        keyInfo.matrix.multiply(frameM);
+                        break;
+                    case 2:
+                        frameM.makeTranslation(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
+                        keyInfo.matrix.multiply(frameM);
+                        break;
+                }
+                if (!frameFound) {
+                    this.currentAnimeFrames.keyFrames.push(keyInfo);
+                }
+            } else {
+                this.ParseMatrixData(keyInfo.matrix, data2[2].split(","));
+                this.currentAnimeFrames.keyFrames.push(keyInfo);
+            }
         }
-        this.currentAnime.AnimeFrames.push(this.currentAnimeFrames);
     }
     MakeOutputAnimation() {
         const animationObj = new XAnimationObj();
@@ -902,8 +960,10 @@ class XLoader {
         put.length = animation.length;
         put.hierarchy = [];
         for (let b = 0; b < model.skeleton.bones.length; b++) {
+            let findAnimation = false;
             for (let i = 0; i < animation.hierarchy.length; i++) {
                 if (model.skeleton.bones[b].name === animation.hierarchy[i].name) {
+                    findAnimation = true;
                     const c_key = animation.hierarchy[i].copy();
                     c_key.parent = -1;
                     if (model.skeleton.bones[b].parent && model.skeleton.bones[b].parent.type === "Bone") {
@@ -919,26 +979,21 @@ class XLoader {
                     break;
                 }
             }
+            if(!findAnimation){
+                const c_key = animation.hierarchy[0].copy();
+                c_key.name = model.skeleton.bones[b].name;
+                c_key.parent = -1;
+                for(let k =0;k < c_key.keys.length;k++){
+                    c_key.keys[k].pos.set(0,0,0);
+                    c_key.keys[k].scl.set(1,1,1);
+                    c_key.keys[k].rot.set(0,0,0,1);
+                }
+                put.hierarchy.push(c_key);
+            }
         }
         return put;
     }
     readFinalize() {
-        if (this.zflg) {
-            for (let i = 0; i < this.Meshes.length; i++) {
-                this.Meshes[i].scale.set(-1, 1, 1);
-                this.Meshes[i].rotation.y = Math.PI;
-            }
-        }
-    }
-    returnLoop(){
-        if(this.texCount <= this.readedTexCount){
-            this.onLoad({
-                models: this.Meshes,
-                animations: this.Animations
-            });
-        } else {
-            setTimeout(() => {this.returnLoop();}, 100);
-        }
     }
     ParseMatrixData(targetMatrix, data) {
         targetMatrix.set(
@@ -946,662 +1001,6 @@ class XLoader {
             parseFloat(data[1]), parseFloat(data[5]), parseFloat(data[9]), parseFloat(data[13]),
             parseFloat(data[2]), parseFloat(data[6]), parseFloat(data[10]), parseFloat(data[14]),
             parseFloat(data[3]), parseFloat(data[7]), parseFloat(data[11]), parseFloat(data[15]));
-    }
-    lineRead(line) {
-        if (line.indexOf("template ") > -1) {
-            return;
-        }
-        if (line.length === 0) {
-            return;
-        }
-        if (line.indexOf("{") > -1) {
-            this.elementLv++;
-        }
-        if (line.indexOf("AnimTicksPerSecond") > -1) {
-            const findA = line.indexOf("{");
-            this.loadingXdata.AnimTicksPerSecond = parseInt(line.substr(findA + 1, line.indexOf(";") - findA + 1), 10);
-        }
-        if (line.indexOf("}") > -1) {
-            if (this.elementLv < 1 || this.nowFrameName === "") {
-                this.elementLv = 0;
-                return;
-            }
-            this.endElement();
-            return;
-        }
-        if (line.indexOf("Frame ") > -1) {
-            this.beginFrame(line);
-            return;
-        }
-        if (line.indexOf("FrameTransformMatrix") > -1) {
-            this.nowReadMode = this.XfileLoadMode.FrameTransformMatrix_Read;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.FrameTransformMatrix_Read) {
-            const data = line.split(",");
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix = new THREE.Matrix4();
-            this.ParseMatrixData(this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameTransformMatrix, data);
-            this.nowReadMode = this.XfileLoadMode.Element;
-            return;
-        }
-        if (line.indexOf("Mesh ") > -1) {
-            this.beginReadMesh(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Vartex_init) {
-            this.readVertexCount(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Vartex_Read) {
-            if (this.readVertex(line)) {
-                return;
-            }
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Index_init) {
-            this.readIndexLength(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.index_Read) {
-            if (this.readVertexIndex(line)) {
-                return;
-            }
-        }
-        if (line.indexOf("MeshNormals ") > -1) {
-            this.beginMeshNormal(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Normal_V_init) {
-            this.readMeshNormalCount(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Normal_V_Read) {
-            if (this.readMeshNormalVertex(line)) {
-                return;
-            }
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Normal_I_init) {
-            this.readMeshNormalIndexCount(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Normal_I_Read) {
-            if (this.readMeshNormalIndex(line)) {
-                return;
-            }
-        }
-        if (line.indexOf("MeshTextureCoords ") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Uv_init;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Uv_init) {
-            this.readUvInit(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Uv_Read) {
-            if (this.readUv(line)) {
-                return;
-            }
-        }
-        if (line.indexOf("MeshMaterialList ") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Face_init;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Mat_Face_init) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Face_len_Read;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Mat_Face_len_Read) {
-            this.readMatrixSetLength(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Mat_Face_Set) {
-            if (this.readMaterialBind(line)) {
-                return;
-            }
-        }
-        if (line.indexOf("Material ") > -1) {
-            this.readMaterialInit(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Mat_Set) {
-            this.readandSetMaterial(line);
-            return;
-        }
-        if (this.nowReadMode >= this.XfileLoadMode.Mat_Set_Texture && this.nowReadMode < this.XfileLoadMode.Weit_init) {
-            this.readandSetMaterialTexture(line);
-            return;
-        }
-        if (line.indexOf("SkinWeights ") > -1 && this.nowReadMode >= this.XfileLoadMode.Element) {
-            this.readBoneInit(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Weit_init) {
-            this.readBoneName(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Weit_IndexLength) {
-            this.readBoneVertexLength(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Weit_Read_Index) {
-            this.readandSetBoneVertex(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Weit_Read_Value) {
-            this.readandSetBoneWeightValue(line);
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Weit_Read_Matrx) {
-            this.readandSetBoneOffsetMatrixValue(line);
-            return;
-        }
-        if (line.indexOf("AnimationSet ") > -1) {
-            this.readandCreateAnimationSet(line);
-            return;
-        }
-        if (line.indexOf("Animation ") > -1 && this.nowReadMode === this.XfileLoadMode.Anim_init) {
-            this.readAndCreateAnimation(line);
-            return;
-        }
-        if (line.indexOf("AnimationKey ") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Anim_KeyValueTypeRead;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Anim_KeyValueTypeRead) {
-            this.nowAnimationKeyType = parseInt(line.substr(0, line.length - 1), 10);
-            this.nowReadMode = this.XfileLoadMode.Anim_KeyValueLength;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Anim_KeyValueLength) {
-            this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-            this.nowReaded = 0;
-            this.nowReadMode = this.XfileLoadMode.Anime_ReadKeyFrame;
-            return;
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Anime_ReadKeyFrame) {
-            this.readAnimationKeyFrame(line);
-            return;
-        }
-    }
-    endElement(line) {
-        if (this.nowReadMode < this.XfileLoadMode.Anim_init && this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv === this.elementLv && this.nowReadMode > this.XfileLoadMode.none) {
-            if (this.frameHierarchie.length > 0) {
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].children = [];
-                const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
-                for (let m = 0; m < keys.length; m++) {
-                    if (this.loadingXdata.FrameInfo_Raw[keys[m]].ParentName === this.nowFrameName) {
-                        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].children.push(keys[m]);
-                    }
-                }
-                this.frameHierarchie.pop();
-            }
-            this.MakeOutputGeometry(this.nowFrameName, this.zflg);
-            this.frameStartLv = this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv;
-            if (this.frameHierarchie.length > 0) {
-                this.nowFrameName = this.frameHierarchie[this.frameHierarchie.length - 1];
-                this.frameStartLv = this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv;
-            } else {
-                this.nowFrameName = "";
-            }
-        }
-        if (this.nowReadMode === this.XfileLoadMode.Mat_Set) {
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials.push(this.nowMat);
-            this.nowReadMode = this.XfileLoadMode.Element;
-        }
-        this.elementLv--;
-    }
-    beginFrame(line) {
-        this.frameStartLv = this.elementLv;
-        this.nowReadMode = this.XfileLoadMode.Element;
-        this.nowFrameName = line.substr(6, line.length - 8);
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
-        if (this.frameHierarchie.length > 0) {
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].ParentName = this.frameHierarchie[this.frameHierarchie.length - 1];
-        }
-        this.frameHierarchie.push(this.nowFrameName);
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv = this.frameStartLv;
-    }
-    beginReadMesh(line) {
-        if (this.nowFrameName === "") {
-            this.frameStartLv = this.elementLv;
-            this.nowFrameName = line.substr(5, line.length - 6);
-            if (this.nowFrameName === "") {
-                this.nowFrameName = "mesh_" + this.loadingXdata.FrameInfo_Raw.length;
-            }
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName] = new XFrameInfo();
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameName = this.nowFrameName;
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].FrameStartLv = this.frameStartLv;
-        }
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry = new THREE.Geometry();
-        this.geoStartLv = this.elementLv;
-        this.nowReadMode = this.XfileLoadMode.Vartex_init;
-        this.Bones = [];
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Materials = [];
-    }
-    readVertexCount(line) {
-        this.nowReadMode = this.XfileLoadMode.Vartex_Read;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-    }
-    readVertex(line) {
-        const data = line.substr(0, line.length - 2).split(";");
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.vertices.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].VertexSetedBoneCount.push(0);
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-            this.nowReadMode = this.XfileLoadMode.Index_init;
-            return true;
-        }
-        return false;
-    }
-    readIndexLength(line) {
-        this.nowReadMode = this.XfileLoadMode.index_Read;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-    }
-    readVertexIndex(line) {
-        const data = line.substr(2, line.length - 4).split(",");
-        if (this.zflg) {
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
-        } else {
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1], 10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
-        }
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-            this.nowReadMode = this.XfileLoadMode.Element;
-            return true;
-        }
-        return false;
-    }
-    readMeshNormalIndexCount(line) {
-        this.nowReadMode = this.XfileLoadMode.Normal_I_Read;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-    }
-    readUvInit(line) {
-        this.nowReadMode = this.XfileLoadMode.Uv_Read;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-        this.tmpUvArray = [];
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0] = [];
-    }
-    readUv(line) {
-        const data = line.split(";");
-        if (this.IsUvYReverse) {
-            this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[1])));
-        } else {
-            this.tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
-        }
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0] = [];
-            for (var m = 0; m < this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces.length; m++) {
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m] = [];
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].a]);
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].b]);
-                this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faceVertexUvs[0][m].push(this.tmpUvArray[this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[m].c]);
-            }
-            this.nowReadMode = this.XfileLoadMode.Element;
-            this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.uvsNeedUpdate = true;
-            return true;
-        }
-        return false;
-    }
-    readMatrixSetLength(line) {
-        this.nowReadMode = this.XfileLoadMode.Mat_Face_Set;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-    }
-    readMaterialBind(line) {
-        const data = line.split(",");
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].Geometry.faces[this.nowReaded].materialIndex = parseInt(data[0]);
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength) {
-            this.nowReadMode = this.XfileLoadMode.Element;
-            return true;
-        }
-        return false;
-    }
-    readMaterialInit(line) {
-        this.nowReadMode = this.XfileLoadMode.Mat_Set;
-        this.matReadLine = 0;
-        this.nowMat = new THREE.MeshPhongMaterial({
-            color: Math.random() * 0xffffff
-        });
-        let matName = line.substr(9, line.length - 10);
-        if (matName !== "") {
-            this.nowMat.name = matName;
-        }
-        if (this.zflg) {
-            this.nowMat.side = THREE.BackSide;
-        } else {
-            this.nowMat.side = THREE.FrontSide;
-        }
-        this.nowMat.side = THREE.FrontSide;
-    }
-    readandSetMaterial(line) {
-        const data = line.split(";");
-        this.matReadLine++;
-        switch (this.matReadLine) {
-            case 1:
-                this.nowMat.color.r = data[0];
-                this.nowMat.color.g = data[1];
-                this.nowMat.color.b = data[2];
-                break;
-            case 2:
-                this.nowMat.shininess = data[0];
-                break;
-            case 3:
-                this.nowMat.specular.r = data[0];
-                this.nowMat.specular.g = data[1];
-                this.nowMat.specular.b = data[2];
-                break;
-            case 4:
-                this.nowMat.emissive.r = data[0];
-                this.nowMat.emissive.g = data[1];
-                this.nowMat.emissive.b = data[2];
-                break;
-        }
-        if (line.indexOf("TextureFilename") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Set_Texture;
-        } else if (line.indexOf("BumpMapFilename") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Set_BumpTex;
-            this.nowMat.bumpScale = 0.05;
-        } else if (line.indexOf("NormalMapFilename") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Set_NormalTex;
-            this.nowMat.normalScale = new THREE.Vector2(2, 2);
-        } else if (line.indexOf("EmissiveMapFilename") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Set_EmissiveTex;
-        } else if (line.indexOf("LightMapFilename") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Mat_Set_LightTex;
-        }
-    }
-    readandSetMaterialTexture(line) {
-        const data = line.substr(1, line.length - 3);
-        if (data != undefined && data.length > 0) {
-            switch (this.nowReadMode) {
-                case this.XfileLoadMode.Mat_Set_Texture:
-                    this.nowMat.map = this.Texloader.load(this.baseDir + data);
-                    break;
-                case this.XfileLoadMode.Mat_Set_BumpTex:
-                    this.nowMat.bumpMap = this.Texloader.load(this.baseDir + data);
-                    break;
-                case this.XfileLoadMode.Mat_Set_NormalTex:
-                    this.nowMat.normalMap = this.Texloader.load(this.baseDir + data);
-                    break;
-                case this.XfileLoadMode.Mat_Set_EmissiveTex:
-                    this.nowMat.emissiveMap = this.Texloader.load(this.baseDir + data);
-                    break;
-                case this.XfileLoadMode.Mat_Set_LightTex:
-                    this.nowMat.lightMap = this.Texloader.load(this.baseDir + data);
-                    break;
-                case this.XfileLoadMode.Mat_Set_EnvTex:
-                    this.nowMat.envMap = this.Texloader.load(this.baseDir + data);
-                    break;
-            }
-        }
-        this.nowReadMode = this.XfileLoadMode.Mat_Set;
-        this.endLineCount++;
-        this.elementLv--;
-    }
-    readBoneInit(line) {
-        this.nowReadMode = this.XfileLoadMode.Weit_init;
-        this.BoneInf = new XboneInf();
-    }
-    readBoneName(line) {
-        this.nowReadMode = this.XfileLoadMode.Weit_IndexLength;
-        this.BoneInf.boneName = line.substr(1, line.length - 3);
-        this.BoneInf.BoneIndex = this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.length;
-        this.nowReaded = 0;
-    }
-    readBoneVertexLength(line) {
-        this.nowReadMode = this.XfileLoadMode.Weit_Read_Index;
-        this.tgtLength = parseInt(line.substr(0, line.length - 1), 10);
-        this.nowReaded = 0;
-    }
-    readandSetBoneVertex(line) {
-        this.BoneInf.Indeces.push(parseInt(line.substr(0, line.length - 1), 10));
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength || line.indexOf(";") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Weit_Read_Value;
-            this.nowReaded = 0;
-        }
-    }
-    readandSetBoneWeightValue(line) {
-        const nowVal = parseFloat(line.substr(0, line.length - 1));
-        this.BoneInf.Weights.push(nowVal);
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength || line.indexOf(";") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Weit_Read_Matrx;
-        }
-    }
-    readandSetBoneOffsetMatrixValue(line) {
-        const data = line.split(",");
-        this.BoneInf.initMatrix = new THREE.Matrix4();
-        this.ParseMatrixData(this.BoneInf.initMatrix, data);
-        this.BoneInf.OffsetMatrix = new THREE.Matrix4();
-        this.BoneInf.OffsetMatrix.getInverse(this.BoneInf.initMatrix);
-        this.loadingXdata.FrameInfo_Raw[this.nowFrameName].BoneInfs.push(this.BoneInf);
-        this.nowReadMode = this.XfileLoadMode.Element;
-    }
-    readandCreateAnimationSet(line) {
-        this.frameStartLv = this.elementLv;
-        this.nowReadMode = this.XfileLoadMode.Anim_init;
-        this.nowAnimationSetName = line.substr(13, line.length - 14).trim();
-        this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName] = [];
-    }
-    readAndCreateAnimation(line) {
-        this.nowFrameName = line.substr(10, line.length - 11).trim();
-        this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName] = new XAnimationInfo();
-        this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].animeName = this.nowFrameName;
-        this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].FrameStartLv = this.frameStartLv;
-        while (true) {
-            this.endLineCount++;
-            line = this.lines[this.endLineCount].trim();
-            if (line.indexOf("{") > -1 && line.indexOf("}") > -1) {
-                this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].boneName = line.replace(/{/g, "").replace(/}/g, "").trim();
-                break;
-            }
-        }
-    }
-    readAnimationKeyFrame(line) {
-        this.keyInfo = null;
-        const data = line.split(";");
-        const nowKeyframe = parseInt(data[0], 10);
-        let frameFound = false;
-        const tmpM = new THREE.Matrix4();
-        if (this.nowAnimationKeyType != 4) {
-            for (var mm = 0; mm < this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length; mm++) {
-                if (this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames[mm].Frame === nowKeyframe) {
-                    this.keyInfo = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames[mm];
-                    frameFound = true;
-                    break;
-                }
-            }
-        }
-        if (!frameFound) {
-            this.keyInfo = new XKeyFrameInfo();
-            this.keyInfo.matrix = new THREE.Matrix4();
-            this.keyInfo.Frame = nowKeyframe;
-        }
-        const data2 = data[2].split(",");
-        switch (this.nowAnimationKeyType) {
-            case 0:
-                tmpM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2])));
-                this.keyInfo.matrix.multiply(tmpM);
-                break;
-            case 1:
-                tmpM.makeScale(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
-                this.keyInfo.matrix.multiply(tmpM);
-                break;
-            case 2:
-                tmpM.makeTranslation(parseFloat(data2[0]), parseFloat(data2[1]), parseFloat(data2[2]));
-                this.keyInfo.matrix.multiply(tmpM);
-                break;
-            case 4:
-                this.ParseMatrixData(this.keyInfo.matrix, data2);
-                break;
-        }
-        if (!frameFound) {
-            this.keyInfo.index = this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.length;
-            this.keyInfo.time =                                                   this.keyInfo.Frame;
-            this.loadingXdata.AnimationSetInfo[this.nowAnimationSetName][this.nowFrameName].keyFrames.push(this.keyInfo);
-        }
-        this.nowReaded++;
-        if (this.nowReaded >= this.tgtLength || line.indexOf(";;;") > -1) {
-            this.nowReadMode = this.XfileLoadMode.Anim_init;
-        }
-    }
-    _readFinalize() {
-        this.loadingXdata.FrameInfo = [];
-        const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
-        for (let i = 0; i < keys.length; i++) {
-            if (this.loadingXdata.FrameInfo_Raw[keys[i]].Mesh != null) {
-                this.loadingXdata.FrameInfo.push(this.loadingXdata.FrameInfo_Raw[keys[i]].Mesh);
-            }
-        }
-        if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
-            for (let i = 0; i < this.loadingXdata.FrameInfo.length; i++) {
-                if (this.loadingXdata.FrameInfo[i].parent == null) {
-                    this.loadingXdata.FrameInfo[i].zflag = this.zflg;
-                    if (this.zflg) {
-                        this.loadingXdata.FrameInfo[i].scale.set(-1, 1, 1);
-                    }
-                }
-            }
-        }
-    }
-    _MakeOutputGeometry(nowFrameName, _zflg) {
-        if (this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry != null) {
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingBox();
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.computeBoundingSphere();
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.verticesNeedUpdate = true;
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.normalsNeedUpdate = true;
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.colorsNeedUpdate = true;
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.uvsNeedUpdate = true;
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.groupsNeedUpdate = true;
-            const putBones = [];
-            let rootBone = new THREE.Bone();
-            if (this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs != null && this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length) {
-                const keys = Object.keys(this.loadingXdata.FrameInfo_Raw);
-                const BoneDics_Name = [];
-                for (let m = 0; m < keys.length; m++) {
-                    if (this.loadingXdata.FrameInfo_Raw[keys[m]].FrameStartLv <= this.loadingXdata.FrameInfo_Raw[nowFrameName].FrameStartLv && nowFrameName != keys[m]) {
-                        continue;
-                    }
-                    const b = new THREE.Bone();
-                    b.name = keys[m];
-                    b.applyMatrix(this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix);
-                    b.matrixWorld = b.matrix;
-                    b.FrameTransformMatrix = this.loadingXdata.FrameInfo_Raw[keys[m]].FrameTransformMatrix;
-                    BoneDics_Name[b.name] = putBones.length;
-                    putBones.push(b);
-                }
-                for (let m = 0; m < putBones.length; m++) {
-                    for (let dx = 0; dx < this.loadingXdata.FrameInfo_Raw[putBones[m].name].children.length; dx++) {
-                        const nowBoneIndex = BoneDics_Name[this.loadingXdata.FrameInfo_Raw[putBones[m].name].children[dx]];
-                        if (putBones[nowBoneIndex] != null) {
-                            putBones[m].add(putBones[nowBoneIndex]);
-                        }
-                    }
-                }
-            }
-            let mesh = null;
-            const bufferGeometry = new THREE.BufferGeometry();
-            if (putBones.length > 0) {
-                if (this.loadingXdata.FrameInfo_Raw[putBones[0].name].children.length === 0 && nowFrameName != putBones[0].name) {
-                    putBones[0].add(putBones[1]);
-                    putBones[0].zflag = _zflg;
-                }
-                for (let m = 0; m < putBones.length; m++) {
-                    if (putBones[m].parent === null) {
-                        putBones[m].zflag = _zflg;
-                    }
-                    for (let bi = 0; bi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs.length; bi++) {
-                        if (putBones[m].name === this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].boneName) {
-                            for (let vi = 0; vi < this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces.length; vi++) {
-                                const nowVertexID = this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Indeces[vi];
-                                const nowVal = this.loadingXdata.FrameInfo_Raw[nowFrameName].BoneInfs[bi].Weights[vi];
-                                switch (this.loadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]) {
-                                    case 0:
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].x = m;
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].x = nowVal;
-                                        break;
-                                    case 1:
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].y = m;
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].y = nowVal;
-                                        break;
-                                    case 2:
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].z = m;
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].z = nowVal;
-                                        break;
-                                    case 3:
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinIndices[nowVertexID].w = m;
-                                        this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry.skinWeights[nowVertexID].w = nowVal;
-                                        break;
-                                }
-                                this.loadingXdata.FrameInfo_Raw[nowFrameName].VertexSetedBoneCount[nowVertexID]++;
-                            }
-                        }
-                    }
-                }
-                for (let sk = 0; sk < this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials.length; sk++) {
-                    this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials[sk].skinning = true;
-                }
-                mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
-                const skeleton = new THREE.Skeleton(putBones);
-                mesh.add(putBones[0]);
-                mesh.bind(skeleton);
-            } else {
-                mesh = new THREE.Mesh(bufferGeometry.fromGeometry(this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry), new THREE.MultiMaterial(this.loadingXdata.FrameInfo_Raw[nowFrameName].Materials));
-            }
-            mesh.name = nowFrameName;
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Mesh = mesh;
-            this.loadingXdata.FrameInfo_Raw[nowFrameName].Geometry = null;
-        }
-    }
-    _animationFinalize() {
-        this.animeKeyNames = Object.keys(this.loadingXdata.AnimationSetInfo);
-        if (this.animeKeyNames != null && this.animeKeyNames.length > 0) {
-            this.nowReaded = 0;
-            this.loadingXdata.XAnimationObj = [];
-            this.animationFinalize_step();
-        } else {
-            this.finalproc();
-        }
-    }
-    _animationFinalize_step() {
-        const i = this.nowReaded;
-        let tgtModel = null;
-        for (let m = 0; m < this.loadingXdata.FrameInfo.length; m++) {
-            const keys2 = Object.keys(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]]);
-            if (this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]][keys2[0]].boneName == this.loadingXdata.FrameInfo[m].name) {
-                tgtModel = this.loadingXdata.FrameInfo[m];
-            }
-        }
-        if (tgtModel != null) {
-            this.loadingXdata.XAnimationObj[i] = new XAnimationObj();
-            this.loadingXdata.XAnimationObj[i].fps = this.loadingXdata.AnimTicksPerSecond;
-            this.loadingXdata.XAnimationObj[i].name = this.animeKeyNames[i];
-            this.loadingXdata.XAnimationObj[i].make(this.loadingXdata.AnimationSetInfo[this.animeKeyNames[i]], tgtModel);
-        }
-        this.nowReaded++;
-        if (this.nowReaded >= this.animeKeyNames.length) {
-            this.loadingXdata.AnimationSetInfo = null;
-            this.finalproc();
-        } else {
-            this.animationFinalize_step();
-        }
-    }
-    _finalproc() {
-        setTimeout(() => {
-            this.onLoad({
-                models: this.Meshes,
-                animations: this.Animations
-            });
-        }, 1);
     }
 }
 
