@@ -299,7 +299,6 @@
                 }
                 for (var m = 0; m < frame.keys.length; m++) {
                     frame.keys[m].time -= _beginTime;
-                    frame.keys[m].time = Math.max(0, frame.keys[m].time);
                 }
                 Animation.hierarchy.push(frame);
             }

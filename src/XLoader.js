@@ -395,7 +395,7 @@ export default class XLoader {
                         break;
 
                     case "AnimTicksPerSecond":
-
+                        this.AnimTicksPerSecond = parseInt(this.currentObject.data);
                         break;
 
                     case "Frame":
@@ -477,20 +477,20 @@ export default class XLoader {
                 break;
             } else {
                 // ルート＝親が１つだけの場合
-                if(this.currentObject.worked){
-                    if(this.currentObject.type == "Mesh" || this.currentObject.type == "AnimationSet"){
+                if (this.currentObject.worked) {
+                    if (this.currentObject.type == "Mesh" || this.currentObject.type == "AnimationSet") {
                         // this.changeRoot();
                     }
 
-                    if(this.currentObject.parent && !this.currentObject.parent.parent){
+                    if (this.currentObject.parent && !this.currentObject.parent.parent) {
                         this.changeRoot();
                     }
                 }
 
-                if (this.currentObject.parent){
+                if (this.currentObject.parent) {
                     this.currentObject = this.currentObject.parent;
                 } else {
-                    ref_timeout = true;    
+                    ref_timeout = true;
                 }
                 break;
             }
@@ -531,7 +531,7 @@ export default class XLoader {
         this.currentFrame = {};
         this.currentFrame.name = this.nowFrameName;
         this.currentFrame.children = [];
-        
+
         if (this.currentObject.parent && this.currentObject.parent.name) {
             this.currentFrame.parentName = this.currentObject.parent.name;
         }
@@ -558,8 +558,8 @@ export default class XLoader {
         this.currentFrame.putBone = b;
 
         if (this.currentFrame.parentName) {
-            for(var frame in this.HieStack){
-                if(this.HieStack[frame].name === this.currentFrame.parentName){
+            for (var frame in this.HieStack) {
+                if (this.HieStack[frame].name === this.currentFrame.parentName) {
                     this.HieStack[frame].putBone.add(this.currentFrame.putBone);
                 }
             }
@@ -943,24 +943,27 @@ export default class XLoader {
         }
         line = this.currentObject.data.substr(endRead, find - endRead);
         const data3 = this.readLine(line.trim()).split(",");
-        boneInf.initMatrix = new THREE.Matrix4();
-        this.ParseMatrixData(boneInf.initMatrix, data3);
+
+        //boneInf.initMatrix = new THREE.Matrix4();
+        //this.ParseMatrixData(boneInf.initMatrix, data3);
 
         boneInf.OffsetMatrix = new THREE.Matrix4();
-        boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
+        this.ParseMatrixData(boneInf.OffsetMatrix, data3);
+        // boneInf.OffsetMatrix.getInverse(boneInf.initMatrix);
+
         this.currentGeo.BoneInfs.push(boneInf);
 
     }
 
-    makePutBoneList(startBone, ref){
-        for(let i =0; i < ref.length;i++){
-            if(ref[i].name === startBone){
+    makePutBoneList(startBone, ref) {
+        for (let i = 0; i < ref.length; i++) {
+            if (ref[i].name === startBone) {
                 return;
             }
         }
 
-        for(var frame in this.HieStack){
-            if(this.HieStack[frame].name === startBone){
+        for (var frame in this.HieStack) {
+            if (this.HieStack[frame].name === startBone) {
 
                 const b = new THREE.Bone();
                 b.name = startBone;
@@ -968,16 +971,16 @@ export default class XLoader {
                 b.matrixWorld = b.matrix;
                 b.FrameTransformMatrix = this.HieStack[frame].FrameTransformMatrix;
                 ref.push(b);
-                if(this.HieStack[frame].putBone.children && this.HieStack[frame].putBone.children.length > 0){
-                    for(let i =0; i < this.HieStack[frame].putBone.children.length;i++ ){
+                if (this.HieStack[frame].putBone.children && this.HieStack[frame].putBone.children.length > 0) {
+                    for (let i = 0; i < this.HieStack[frame].putBone.children.length; i++) {
                         this.makePutBoneList(this.HieStack[frame].putBone.children[i].name, ref);
-                        for(let m=0; m < ref.length;m++){
-                            if(ref[m].name === this.HieStack[frame].putBone.children[i].name){
+                        for (let m = 0; m < ref.length; m++) {
+                            if (ref[m].name === this.HieStack[frame].putBone.children[i].name) {
                                 b.add(ref[m]);
                             }
-                        }                
+                        }
                     }
-                }   
+                }
                 break;
             }
         }
@@ -1003,7 +1006,7 @@ export default class XLoader {
 
         if (this.currentGeo.BoneInfs.length > 0) {
             this.currentGeo.putBones = [];
-            this.makePutBoneList(this.currentGeo.baseFrame.parentName,  this.currentGeo.putBones );
+            this.makePutBoneList(this.currentGeo.baseFrame.parentName, this.currentGeo.putBones);
             //さらに、ウェイトとボーン情報を紐付ける
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
                 // ズレているskinWeightのボーンと、頂点のないボーン情報とのすり合わせ
@@ -1011,6 +1014,8 @@ export default class XLoader {
                 for (let bb = 0; bb < this.currentGeo.putBones.length; bb++) {
                     if (this.currentGeo.putBones[bb].name === this.currentGeo.BoneInfs[bi].boneName) {
                         boneIndex = bb;
+                        this.currentGeo.putBones[bb].OffsetMatrix = new THREE.Matrix4();
+                        this.currentGeo.putBones[bb].OffsetMatrix.copy(this.currentGeo.BoneInfs[bi].OffsetMatrix);
                         break;
                     }
                 }
@@ -1040,8 +1045,8 @@ export default class XLoader {
                             break;
                     }
                     this.currentGeo.VertexSetedBoneCount[nowVertexID]++;
-                    if(this.currentGeo.VertexSetedBoneCount[nowVertexID] > 4){
-                        console.log('warn! over 4 bone weight! :');
+                    if (this.currentGeo.VertexSetedBoneCount[nowVertexID] > 4) {
+                        console.log('warn! over 4 bone weight! :' + nowVertexID);
                     }
                 }
             }
@@ -1050,8 +1055,17 @@ export default class XLoader {
                 this.currentGeo.Materials[sk].skinning = true;
             }
 
+            const offsetList = [];
+            for (let bi = 0; bi < this.currentGeo.putBones.length; bi++) {
+                if (this.currentGeo.putBones[bi].OffsetMatrix) {
+                    offsetList.push(this.currentGeo.putBones[bi].OffsetMatrix);
+                } else {
+                    offsetList.push(new THREE.Matrix4());
+                }
+            }
+
             mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.currentGeo.Geometry), new THREE.MultiMaterial(this.currentGeo.Materials));
-            const skeleton = new THREE.Skeleton(this.currentGeo.putBones);
+            const skeleton = new THREE.Skeleton(this.currentGeo.putBones, offsetList);
             mesh.add(this.currentGeo.putBones[0]);
             mesh.bind(skeleton);
 
@@ -1060,6 +1074,21 @@ export default class XLoader {
         }
 
         mesh.name = this.currentGeo.name;
+
+        // ボーンが属すよりさらに上の階層のframeMatrixがあれば、割り当てる
+        const worldBaseMx = new THREE.Matrix4();
+        let currentMxFrame = this.currentGeo.baseFrame.putBone;
+        if (currentMxFrame.parent) {
+            while (true) {
+                currentMxFrame = currentMxFrame.parent;
+                if (currentMxFrame) {
+                    worldBaseMx.multiply(currentMxFrame.FrameTransformMatrix);
+                } else {
+                    break;
+                }
+            }
+        }
+        mesh.applyMatrix(worldBaseMx);
         this.Meshes.push(mesh);
     }
 
@@ -1087,7 +1116,6 @@ export default class XLoader {
             keyInfo.Frame = parseInt(data2[0]);
             keyInfo.index = this.currentAnimeFrames.keyFrames.length;
             keyInfo.time = keyInfo.Frame;
-            keyInfo.matrix = new THREE.Matrix4();
 
             //すでにそのキーが宣言済みでないかどうかを探す
             //要素によるキー飛ばし（回転：0&20フレーム、　移動:0&10&20フレーム　で、10フレーム時に回転キーがない等 )には対応できていない
@@ -1101,20 +1129,23 @@ export default class XLoader {
                     }
                 }
                 const frameValue = data2[2].split(",");
-                const frameM = new THREE.Matrix4();
+                //const frameM = new THREE.Matrix4();
                 switch (nowKeyType) {
 
                     case 0:
-                        frameM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0])));
-                        keyInfo.matrix.multiply(frameM);
+                        keyInfo.rotq = new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0]));
+                        // frameM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0])));
+                        //keyInfo.matrix.multiply(frameM);
                         break;
                     case 1:
-                        frameM.makeScale(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
-                        keyInfo.matrix.multiply(frameM);
+                        keyInfo.scl = new THREE.Vector3(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
+                        // frameM.makeScale(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
+                        //keyInfo.matrix.multiply(frameM);
                         break;
                     case 2:
-                        frameM.makeTranslation(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
-                        keyInfo.matrix.multiply(frameM);
+                        keyInfo.pos = new THREE.Vector3(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
+                        //frameM.makeTranslation(parseFloat(frameValue[0]), parseFloat(frameValue[1]), parseFloat(frameValue[2]));
+                        //keyInfo.matrix.multiply(frameM);
                         break;
                         //case 3: this.keyInfo.matrix.makeScale(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])); break;
 
@@ -1124,6 +1155,7 @@ export default class XLoader {
                     this.currentAnimeFrames.keyFrames.push(keyInfo);
                 }
             } else {
+                keyInfo.matrix = new THREE.Matrix4();
                 this.ParseMatrixData(keyInfo.matrix, data2[2].split(","));
                 this.currentAnimeFrames.keyFrames.push(keyInfo);
             }
@@ -1177,19 +1209,30 @@ export default class XLoader {
                         }
                     }
 
+                    //test
+                    if (!c_key.keys[0].matrix) {
+                        for (let k = 0; k < c_key.keys.length; k++) {
+                            var tmpM = new THREE.Matrix4();
+                            var tmpM2 = new THREE.Matrix4();
+                            tmpM.compose(c_key.keys[k].pos, c_key.keys[k].rotq, c_key.keys[k].scl);
+                            tmpM.multiplyMatrices(model.skeleton.bones[b].FrameTransformMatrix, tmpM);
+                            tmpM.decompose(c_key.keys[k].pos, c_key.keys[k].rotq, c_key.keys[k].scl);
+                        }
+                    }
+
                     put.hierarchy.push(c_key);
                     break;
                 }
             }
-            if(!findAnimation){
+            if (!findAnimation) {
                 // キーだけダミーでコピー
                 const c_key = animation.hierarchy[0].copy();
                 c_key.name = model.skeleton.bones[b].name;
                 c_key.parent = -1;
-                for(let k =0;k < c_key.keys.length;k++){
-                    c_key.keys[k].pos.set(0,0,0);
-                    c_key.keys[k].scl.set(1,1,1);
-                    c_key.keys[k].rot.set(0,0,0,1);
+                for (let k = 0; k < c_key.keys.length; k++) {
+                    c_key.keys[k].pos.set(0, 0, 0);
+                    c_key.keys[k].scl.set(1, 1, 1);
+                    c_key.keys[k].rotq.set(0, 0, 0, 1);
                 }
                 put.hierarchy.push(c_key);
             }

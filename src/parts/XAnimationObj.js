@@ -90,11 +90,26 @@ export default class XAnimationObj {
 
             const keyframe = {};
             keyframe.time = XAnimationInfo.keyFrames[i].time * this.fps;
-            keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;
 
-            keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
-            keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
-            keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
+            if(XAnimationInfo.keyFrames[i].pos){
+                keyframe.pos = XAnimationInfo.keyFrames[i].pos;
+            }
+
+            if(XAnimationInfo.keyFrames[i].rotq){
+                keyframe.rotq = XAnimationInfo.keyFrames[i].rotq;
+            }
+
+            if(XAnimationInfo.keyFrames[i].scl){
+                keyframe.scl = XAnimationInfo.keyFrames[i].scl;
+            }
+
+            if(XAnimationInfo.keyFrames[i].matrix){
+                keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;    
+                keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
+                keyframe.rotq = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
+                keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
+            }            
+
             keys.push(keyframe);
 
         }

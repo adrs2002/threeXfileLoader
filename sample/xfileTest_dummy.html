@@ -39,8 +39,8 @@
 
     <div id="canvase3d"></div>
 
-    <!-- <script src="three.min.js"></script> -->
-    <script src="../three.js"></script>
+    <script src="three.min.js"></script> 
+    <!-- <script src="../three.js"></script>-->
     <script src="lib/OrbitControls.js"></script>
 
     <script src="../threeXLoader.js"></script>
@@ -125,7 +125,7 @@
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['2monwolv.x', true, true], function (object) {
+            loader.load(['2refor.x', false, false], function (object) {
 
                 for (var i = 0; i < object.models.length; i++) {
                     Models.push(object.models[i]);
@@ -151,15 +151,10 @@
 
                         var stand = mixer.clipAction(Models[0].geometry.animations[0].name);
                         // stand.play();
-                        stand.setLoop(THREE.LoopOnce);
+                        // stand.setLoop(THREE.LoopOnce);
                         stand.clampWhenFinished = true;
-                        actions['stand'] = stand;
-/*
-                        gui.add(dmy, 'action', ActionKeys).onChange(function (v) {
-                            animates[0].stopAllAction();
-                            actions[v].play();
-                        });
-                        */
+                        stand.play();
+                        
                     }
                 }
                 object = null;
@@ -173,7 +168,7 @@
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.target.set(0, 1.2, 0);
-            camera.position.set(2, 1.8, 2.8);
+            camera.position.set(0, 1.8, 2.8);
             camera.up.set(0, 1, 0);
 
             var light = new THREE.DirectionalLight(0xffffff, 1);
