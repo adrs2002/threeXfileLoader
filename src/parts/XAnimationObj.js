@@ -95,8 +95,8 @@ export default class XAnimationObj {
                 keyframe.pos = XAnimationInfo.keyFrames[i].pos;
             }
 
-            if(XAnimationInfo.keyFrames[i].rotq){
-                keyframe.rotq = XAnimationInfo.keyFrames[i].rotq;
+            if(XAnimationInfo.keyFrames[i].rot){
+                keyframe.rot = XAnimationInfo.keyFrames[i].rot;
             }
 
             if(XAnimationInfo.keyFrames[i].scl){
@@ -106,7 +106,7 @@ export default class XAnimationObj {
             if(XAnimationInfo.keyFrames[i].matrix){
                 keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;    
                 keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
-                keyframe.rotq = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
+                keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
                 keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
             }            
 

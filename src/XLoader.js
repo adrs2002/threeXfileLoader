@@ -31,6 +31,9 @@ import XAnimationInfo from './parts/xAnimationInfo.js'
 import XAnimationObj from './parts/XAnimationObj.js'
 import XFrameInfo from './parts/xFrameInfo.js'
 import XKeyFrameInfo from './parts/KeyFrameInfo.js'
+import {
+    tmpdir
+} from 'os';
 
 
 export default class XLoader {
@@ -416,7 +419,7 @@ export default class XLoader {
                         this.currentGeo.Materials = [];
                         this.currentGeo.normalVectors = [];
                         this.currentGeo.BoneInfs = [];
-                        // this.currentGeo.putBones = [];
+                        // putBones = [];
                         this.currentGeo.baseFrame = this.currentFrame;
                         this.makeBoneFromCurrentFrame();
                         this.readVertexDatas();
@@ -955,7 +958,7 @@ export default class XLoader {
 
     }
 
-    makePutBoneList(startBone, ref) {
+    _makePutBoneList(startBone, ref) {
         for (let i = 0; i < ref.length; i++) {
             if (ref[i].name === startBone) {
                 return;
@@ -986,6 +989,33 @@ export default class XLoader {
         }
     }
 
+    makePutBoneList(_RootName, _bones) {
+        let putting = false;
+        for (var frame in this.HieStack) {
+            if (this.HieStack[frame].name === _RootName || putting) {
+                putting = true;
+                const b = new THREE.Bone();
+                b.name = this.HieStack[frame].name;
+                b.applyMatrix(this.HieStack[frame].FrameTransformMatrix);
+                b.matrixWorld = b.matrix;
+                b.FrameTransformMatrix = this.HieStack[frame].FrameTransformMatrix;
+                b.pos = new THREE.Vector3().setFromMatrixPosition(b.FrameTransformMatrix).toArray();
+                b.rotq = new THREE.Quaternion().setFromRotationMatrix(b.FrameTransformMatrix).toArray();
+                b.scl = new THREE.Vector3().setFromMatrixScale(b.FrameTransformMatrix).toArray();
+
+                if (this.HieStack[frame].parentName && this.HieStack[frame].parentName.length > 0) {
+                    for (let i = 0; i < _bones.length; i++) {
+                        if (this.HieStack[frame].parentName === _bones[i].name) {
+                            _bones[i].add(b);
+                            b.parent = i;
+                            break;
+                        }
+                    }
+                }
+                _bones.push(b);
+            }
+        }
+    }
 
     MakeOutputGeometry() {
 
@@ -1002,20 +1032,19 @@ export default class XLoader {
         //ボーンの階層構造を作成する
 
         let mesh = null;
-        const bufferGeometry = new THREE.BufferGeometry();
 
         if (this.currentGeo.BoneInfs.length > 0) {
-            this.currentGeo.putBones = [];
-            this.makePutBoneList(this.currentGeo.baseFrame.parentName, this.currentGeo.putBones);
+            const putBones = [];
+            this.makePutBoneList(this.currentGeo.baseFrame.parentName, putBones);
             //さらに、ウェイトとボーン情報を紐付ける
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
                 // ズレているskinWeightのボーンと、頂点のないボーン情報とのすり合わせ
                 let boneIndex = 0;
-                for (let bb = 0; bb < this.currentGeo.putBones.length; bb++) {
-                    if (this.currentGeo.putBones[bb].name === this.currentGeo.BoneInfs[bi].boneName) {
+                for (let bb = 0; bb < putBones.length; bb++) {                 
+                    if (putBones[bb].name === this.currentGeo.BoneInfs[bi].boneName) {
                         boneIndex = bb;
-                        this.currentGeo.putBones[bb].OffsetMatrix = new THREE.Matrix4();
-                        this.currentGeo.putBones[bb].OffsetMatrix.copy(this.currentGeo.BoneInfs[bi].OffsetMatrix);
+                        putBones[bb].OffsetMatrix = new THREE.Matrix4();
+                        putBones[bb].OffsetMatrix.copy(this.currentGeo.BoneInfs[bi].OffsetMatrix);
                         break;
                     }
                 }
@@ -1031,6 +1060,7 @@ export default class XLoader {
                             this.currentGeo.Geometry.skinIndices[nowVertexID].x = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
                             break;
+
                         case 1:
                             this.currentGeo.Geometry.skinIndices[nowVertexID].y = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
@@ -1043,6 +1073,7 @@ export default class XLoader {
                             this.currentGeo.Geometry.skinIndices[nowVertexID].w = boneIndex;
                             this.currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
                             break;
+
                     }
                     this.currentGeo.VertexSetedBoneCount[nowVertexID]++;
                     if (this.currentGeo.VertexSetedBoneCount[nowVertexID] > 4) {
@@ -1056,21 +1087,22 @@ export default class XLoader {
             }
 
             const offsetList = [];
-            for (let bi = 0; bi < this.currentGeo.putBones.length; bi++) {
-                if (this.currentGeo.putBones[bi].OffsetMatrix) {
-                    offsetList.push(this.currentGeo.putBones[bi].OffsetMatrix);
+            for (let bi = 0; bi < putBones.length; bi++) {
+                if (putBones[bi].OffsetMatrix) {
+                    offsetList.push(putBones[bi].OffsetMatrix);
                 } else {
                     offsetList.push(new THREE.Matrix4());
                 }
             }
 
-            mesh = new THREE.SkinnedMesh(bufferGeometry.fromGeometry(this.currentGeo.Geometry), new THREE.MultiMaterial(this.currentGeo.Materials));
-            const skeleton = new THREE.Skeleton(this.currentGeo.putBones, offsetList);
-            mesh.add(this.currentGeo.putBones[0]);
-            mesh.bind(skeleton);
-
+            const bufferGeometry = new THREE.BufferGeometry().fromGeometry(this.currentGeo.Geometry);
+            bufferGeometry.bones = putBones;
+            mesh = new THREE.SkinnedMesh(bufferGeometry, new THREE.MultiMaterial(this.currentGeo.Materials));
+            mesh.skeleton.boneInverses = offsetList;
         } else {
-            mesh = new THREE.Mesh(this.currentGeo.Geometry, new THREE.MultiMaterial(this.currentGeo.Materials));
+
+            const bufferGeometry = new THREE.BufferGeometry().fromGeometry(this.currentGeo.Geometry);
+            mesh = new THREE.Mesh(bufferGeometry, new THREE.MultiMaterial(this.currentGeo.Materials));
         }
 
         mesh.name = this.currentGeo.name;
@@ -1133,7 +1165,7 @@ export default class XLoader {
                 switch (nowKeyType) {
 
                     case 0:
-                        keyInfo.rotq = new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0]));
+                        keyInfo.rot = new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0]) * -1);
                         // frameM.makeRotationFromQuaternion(new THREE.Quaternion(parseFloat(frameValue[1]), parseFloat(frameValue[2]), parseFloat(frameValue[3]), parseFloat(frameValue[0])));
                         //keyInfo.matrix.multiply(frameM);
                         break;
@@ -1209,16 +1241,14 @@ export default class XLoader {
                         }
                     }
 
-                    //test
-                    if (!c_key.keys[0].matrix) {
-                        for (let k = 0; k < c_key.keys.length; k++) {
-                            var tmpM = new THREE.Matrix4();
-                            var tmpM2 = new THREE.Matrix4();
-                            tmpM.compose(c_key.keys[k].pos, c_key.keys[k].rotq, c_key.keys[k].scl);
-                            tmpM.multiplyMatrices(model.skeleton.bones[b].FrameTransformMatrix, tmpM);
-                            tmpM.decompose(c_key.keys[k].pos, c_key.keys[k].rotq, c_key.keys[k].scl);
-                        }
+                    /*
+                    for (let k = 0; k < c_key.keys.length; k++) {
+                        var tmpM = new THREE.Matrix4();
+                        var tmpM2 = new THREE.Matrix4();
+                        tmpM.compose(c_key.keys[k].pos, c_key.keys[k].rot, c_key.keys[k].scl);
+                        tmpM.decompose(c_key.keys[k].pos, c_key.keys[k].rot, c_key.keys[k].scl);
                     }
+                    */
 
                     put.hierarchy.push(c_key);
                     break;
@@ -1232,7 +1262,7 @@ export default class XLoader {
                 for (let k = 0; k < c_key.keys.length; k++) {
                     c_key.keys[k].pos.set(0, 0, 0);
                     c_key.keys[k].scl.set(1, 1, 1);
-                    c_key.keys[k].rotq.set(0, 0, 0, 1);
+                    c_key.keys[k].rot.set(0, 0, 0, 1);
                 }
                 put.hierarchy.push(c_key);
             }
