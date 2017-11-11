@@ -146,8 +146,6 @@
 
                         if (animateObj !== undefined) {
                             
-                            Models[0].geometry.animations = [];
-
                             Models[0].geometry.animations.push(THREE.AnimationClip.parseAnimation(
                                 splitAnimation(animateObj, 'stand', 10 * animateObj.fps, 11 *
                                     animateObj.fps), Models[0].skeleton.bones));

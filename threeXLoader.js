@@ -1227,7 +1227,14 @@ var XLoader = function () {
                     put.hierarchy.push(_c_key);
                 }
             }
-            return put;
+            if (!model.geometry.animations) {
+                model.geometry.animations = [];
+            }
+            model.geometry.animations.push(THREE.AnimationClip.parseAnimation(put, model.skeleton.bones));
+            if (!model.animationMixer) {
+                model.animationMixer = new THREE.AnimationMixer(model);
+            }
+            return;
         }
     }, {
         key: 'readFinalize',

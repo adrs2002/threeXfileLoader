@@ -123,82 +123,27 @@
 
             //download Model file
             loader.load(['content/SSR06_Born2.x', false, true], function (object) {
-                for (var i = 0; i < object.models.length; i++) {
-                    Models.push(object.models[i]);
-                    scene.add(Models[i]);
+                for (var i = 0; i < object.models.length; i++) {                    
+                    loader.assignAnimation();
 
-                    var animateObj = loader.assignAnimation();
+                    Models.push(object.models[0]);
+                    scene.add(Models[0]);
 
                     //create animations
-                    if (Models[i] instanceof THREE.SkinnedMesh) {
-                        skeletonHelper = new THREE.SkeletonHelper(Models[i]);
+                    if (Models[0] instanceof THREE.SkinnedMesh) {
+                        skeletonHelper = new THREE.SkeletonHelper(Models[0]);
                         scene.add(skeletonHelper);
+                        
+                        animates.push(Models[0].animationMixer);
 
-                        if (animateObj !== undefined) {
-                            Models[i].geometry.animations = [];
+                        var stand = Models[0].animationMixer.clipAction('stand');
+                        // stand.play();
+                        stand.setLoop(THREE.LoopRepeat);
+                        actions['stand'] = stand;
+                        actions['stand'].play();
 
-                            /* 
-                            *  ↓ that is BASIC animation data code.
-                            *  Usually, please use this.
-                            *  Because of the data I have, I use a different code
-                            * 
-                           for (var a = 0; a < object.XAnimationObj.length; a++) {
-                               Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(object.XAnimationObj[a], Models[i].skeleton.bones));
-                           } 
-                           Models[i].mixer = new THREE.AnimationMixer(Models[i]);
-                           animates.push(Models[i].mixer);
-
-                           var action = Models[i].mixer.clipAction(Models[i].geometry.animations[0]);
-                           action.play();
-                           */
-
-                            // ↓ that is a code for [ All animation-keyframes are connected data ].
-
-                            {
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(animateObj, 'stand', 10 * animateObj.fps, 11 * animateObj.fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(animateObj, 'walk', 50 * animateObj.fps, 80 * animateObj.fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(animateObj, 'dash', 140 * animateObj.fps, 160 * animateObj.fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(animateObj, 'dashing', 160 * animateObj.fps, 165 * animateObj.fps), Models[i].skeleton.bones));
-                                Models[i].geometry.animations.push(THREE.AnimationClip.parseAnimation(splitAnimation(animateObj, 'damage', 500 * animateObj.fps, 530 * animateObj.fps), Models[i].skeleton.bones));
-
-                                Models[i].mixer = new THREE.AnimationMixer(Models[i]);
-                                animates.push(Models[i].mixer);
-
-                                var stand = Models[i].mixer.clipAction('stand');
-                                // stand.play();
-                                stand.setLoop(THREE.LoopRepeat);
-                                actions['stand'] = stand;
-
-                                var walk = Models[i].mixer.clipAction('walk');
-                                walk.setLoop(THREE.LoopRepeat);
-                                // walk.play();
-                                actions['walk'] = walk;
-
-                                var dash = Models[i].mixer.clipAction('dash');
-                                dash.setLoop(THREE.LoopOnce);
-                                //dash.play();
-                                actions['dash'] = dash;
-
-                                var dashing = Models[i].mixer.clipAction('dashing');
-                                dashing.setLoop(THREE.LoopPingPong);
-                                // dashing.play();
-                                actions['dashing'] = dashing;
-
-                                var damage = Models[i].mixer.clipAction('damage');
-                                damage.setLoop(THREE.LoopRepeat);
-                                //damage.play();
-                                actions['damage'] = damage;
-                                var ActionKeys = Object.keys(actions);
-                                var dmy  = {};
-                                dmy.action = "";
-                                gui.add(dmy, 'action', ActionKeys).onChange(function (v) {
-                                    animates[0].stopAllAction();
-                                    actions[v].play();
-                                });
-                            }
-                            ///////////
-                        }
                     }
+                    break;
                 }
 
                 object = null;
