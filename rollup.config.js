@@ -1,6 +1,6 @@
 import nodeResolve  from 'rollup-plugin-node-resolve'
 import cleanup from 'rollup-plugin-cleanup';
-// import buble from 'rollup-plugin-buble'
+import babel from 'rollup-plugin-babel'
 
 export default {
   input: './src/XLoader.js',
@@ -15,7 +15,7 @@ export default {
         nodeResolve({ jsnext: true }), // npmモジュールを`node_modules`から読み込む
           cleanup({
           comments: ['none']
-          })
-        // babel() // ES5に変換
+          }),
+          babel()
   ]
 }

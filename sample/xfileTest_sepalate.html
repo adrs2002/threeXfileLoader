@@ -125,14 +125,14 @@
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/SSR06_model.x', true, true], function (object) {
+            loader.load(['content/SSR06_model.x', true], function (object) {
 
                 for (var i = 0; i < object.models.length; i++) {
                     Models.push(object.models[i]);                    
                 }
 
                 var loader2 = new THREE.XLoader(manager, Texloader);
-                loader2.load(['content/SSR06_anime.x', true, true], function (object2) {
+                loader2.load(['content/SSR06_anime.x', true], function (object2) {
 
                     scene.add(Models[0]);
 
@@ -201,6 +201,7 @@
                                 animates[0].stopAllAction();
                                 actions[v].play();
                             });
+                            
                         }
                     }
                 }, onProgress, onError);
@@ -214,12 +215,12 @@
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.target.set(0, 12, 0);
-            camera.position.set(2, 18, 28);
+            controls.target.set(0, 5, 0);
+            camera.position.set(2, 10, -28);
             camera.up.set(0, 1, 0);
 
             var light = new THREE.DirectionalLight(0xffffff, 1);
-            light.position.set(10, 100, 10).normalize();
+            light.position.set(10, 100, -10).normalize();
             scene.add(light);
 
             light = new THREE.DirectionalLight(0x777666, 1);

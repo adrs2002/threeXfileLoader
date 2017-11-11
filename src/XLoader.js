@@ -33,6 +33,13 @@ import XKeyFrameInfo from './parts/KeyFrameInfo.js'
 
 export default class XLoader {
     // コンストラクタ
+
+    /**
+     * 
+     * @param { THREE.LoadingManager } manager 
+     * @param { THREE.TextureLoader } Texloader 
+     * @param { bool } _zflg X軸反転を有効にするかどうか
+     */
     constructor(manager, Texloader, _zflg) {
 
         this.debug = false;
@@ -418,7 +425,7 @@ export default class XLoader {
                 if (this.debug) {
                     console.log('processing ' + this.currentObject.name);
                 }
-                if(breakFlag)break;
+                if (breakFlag) break;
             } else {
                 // ルート＝親が１つだけの場合
                 if (this.currentObject.worked) {
@@ -436,7 +443,7 @@ export default class XLoader {
                 } else {
                     breakFlag = true;
                 }
-                if(breakFlag)break;
+                if (breakFlag) break;
             }
         }
         return;
@@ -603,17 +610,16 @@ export default class XLoader {
     readFace1(line) {
         // 面に属する頂点数,頂点の配列内index という形で入っている
         const data = this.readLine(line.trim()).substr(2, line.length - 4).split(",");
-        if (this.zflg) {
-            this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[2], 10), parseInt(data[1], 10), parseInt(data[0], 10), new THREE.Vector3(1, 1, 1).normalize()));
-        } else {
-            this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1], 10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
-        }
+        this.currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1], 10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
     }
 
     readNormalVector1(line) {
         const data = this.readLine(line.trim()).substr(0, line.length - 2).split(";");
-        this.currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
-        // this.currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])]);
+        if(this.zflg){
+            this.currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]) * -1, parseFloat(data[1]) * -1, parseFloat(data[2]) * -1));
+        }else{
+            this.currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
+        }
     }
 
     readNormalFace1(line, nowReaded) {
@@ -627,15 +633,9 @@ export default class XLoader {
         nowID = parseInt(data[2], 10);
         const v3 = this.currentGeo.normalVectors[nowID];
 
-        //研究中
-        if (this.zflg) {
-            this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v3, v2, v1];
-        } else {
-            this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v1, v2, v3];
-        }
+        this.currentGeo.Geometry.faces[nowReaded].vertexNormals = [v1, v2, v3];
 
     }
-
 
     setMeshNormals() {
         let endRead = 0;
@@ -764,7 +764,6 @@ export default class XLoader {
         } else {
             nowMat.side = THREE.FrontSide;
         }
-        nowMat.side = THREE.FrontSide;
 
         nowMat.name = this.currentObject.name;
 
@@ -896,37 +895,6 @@ export default class XLoader {
 
     }
 
-    _makePutBoneList(startBone, ref) {
-        for (let i = 0; i < ref.length; i++) {
-            if (ref[i].name === startBone) {
-                return;
-            }
-        }
-
-        for (var frame in this.HieStack) {
-            if (this.HieStack[frame].name === startBone) {
-
-                const b = new THREE.Bone();
-                b.name = startBone;
-                b.applyMatrix(this.HieStack[frame].FrameTransformMatrix);
-                b.matrixWorld = b.matrix;
-                b.FrameTransformMatrix = this.HieStack[frame].FrameTransformMatrix;
-                ref.push(b);
-                if (this.HieStack[frame].putBone.children && this.HieStack[frame].putBone.children.length > 0) {
-                    for (let i = 0; i < this.HieStack[frame].putBone.children.length; i++) {
-                        this.makePutBoneList(this.HieStack[frame].putBone.children[i].name, ref);
-                        for (let m = 0; m < ref.length; m++) {
-                            if (ref[m].name === this.HieStack[frame].putBone.children[i].name) {
-                                b.add(ref[m]);
-                            }
-                        }
-                    }
-                }
-                break;
-            }
-        }
-    }
-
     makePutBoneList(_RootName, _bones) {
         let putting = false;
         for (var frame in this.HieStack) {
@@ -978,7 +946,7 @@ export default class XLoader {
             for (let bi = 0; bi < this.currentGeo.BoneInfs.length; bi++) {
                 // ズレているskinWeightのボーンと、頂点のないボーン情報とのすり合わせ
                 let boneIndex = 0;
-                for (let bb = 0; bb < putBones.length; bb++) {                 
+                for (let bb = 0; bb < putBones.length; bb++) {
                     if (putBones[bb].name === this.currentGeo.BoneInfs[bi].boneName) {
                         boneIndex = bb;
                         putBones[bb].OffsetMatrix = new THREE.Matrix4();
@@ -1143,7 +1111,7 @@ export default class XLoader {
     }
 
     /**
-     * 
+     * モデルにアニメーションを割り当てます。
      * @param { THREE.Mesh } _model 
      * @param { XAnimationObj } _animation
      */
@@ -1156,6 +1124,7 @@ export default class XLoader {
         if (!animation) {
             animation = this.Animations[0];
         }
+        if(!model || !animation){return null;}
 
         const put = {};
         put.fps = animation.fps;
@@ -1178,15 +1147,6 @@ export default class XLoader {
                             }
                         }
                     }
-
-                    /*
-                    for (let k = 0; k < c_key.keys.length; k++) {
-                        var tmpM = new THREE.Matrix4();
-                        var tmpM2 = new THREE.Matrix4();
-                        tmpM.compose(c_key.keys[k].pos, c_key.keys[k].rot, c_key.keys[k].scl);
-                        tmpM.decompose(c_key.keys[k].pos, c_key.keys[k].rot, c_key.keys[k].scl);
-                    }
-                    */
 
                     put.hierarchy.push(c_key);
                     break;
@@ -1211,20 +1171,12 @@ export default class XLoader {
 
     readFinalize() {
         //アニメーション情報、ボーン構造などを再構築
-
         //一部ソフトウェアからの出力用（DirectXとOpenGLのZ座標系の違い）に、鏡面処理を行う
-        /* まだ
-        if (this.loadingXdata.FrameInfo != null & this.loadingXdata.FrameInfo.length > 0) {
-            for (let i = 0; i < this.loadingXdata.FrameInfo.length; i++) {
-                if (this.loadingXdata.FrameInfo[i].parent == null) {
-                    this.loadingXdata.FrameInfo[i].zflag = this.zflg;
-                    if (this.zflg) {
-                        this.loadingXdata.FrameInfo[i].scale.set(-1, 1, 1);
-                    }
-                }
+        if (this.zflg) {
+            for (let i = 0; i < this.Meshes.length; i++) {
+                this.Meshes[i].scale.set(-1, 1, 1);
             }
         }
-        */
     }
 
     ///
@@ -1241,5 +1193,3 @@ export default class XLoader {
     }
 
 };
-
-// export { XLoader };
