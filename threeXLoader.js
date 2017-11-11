@@ -1,18 +1,8 @@
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory(require('os')) :
-	typeof define === 'function' && define.amd ? define(['os'], factory) :
-	(global.THREE = global.THREE || {}, global.THREE.XLoader = factory(global.os));
-}(this, (function (os) { 'use strict';
-
-class Xdata {
-    constructor() {
-        this.FrameInfo = [];
-        this.FrameInfo_Raw = [];
-        this.AnimationSetInfo = [];
-        this.AnimTicksPerSecond = 60;
-        this.XAnimationObj = null;
-    }
-}
+	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+	typeof define === 'function' && define.amd ? define(factory) :
+	(global.THREE = global.THREE || {}, global.THREE.XLoader = factory());
+}(this, (function () { 'use strict';
 
 class XboneInf {
     constructor() {
@@ -129,7 +119,7 @@ class XKeyFrameInfo {
 "use strict";
 class XLoader {
     constructor(manager, Texloader, _zflg) {
-        this.debug = true;
+        this.debug = false;
         this.manager = (manager !== undefined) ? manager : new THREE.DefaultLoadingManager();
         this.Texloader = (Texloader !== undefined) ? Texloader : new THREE.TextureLoader();
         this.zflg = (_zflg === undefined) ? false : _zflg;
@@ -148,7 +138,6 @@ class XLoader {
         this.currentObject = {};
         this.currentFrame = {};
         this.endLineCount = 0;
-        this.loadingXdata = null;
         this.lines = null;
         this.keyInfo = null;
         this.animeKeyNames = null;
@@ -260,7 +249,6 @@ class XLoader {
         if (this.url.lastIndexOf("/") > 0) {
             this.baseDir = this.url.substr(0, this.url.lastIndexOf("/") + 1);
         }
-        this.loadingXdata = new Xdata();
         let endRead = 16;
         this.Hierarchies.children = [];
         this.HierarchieParse(this.Hierarchies, endRead);
@@ -324,14 +312,9 @@ class XLoader {
     mainloop() {
         const timeoutFlag = this.mainProc();
         if (this.currentObject.parent || this.currentObject.children.length > 0 || !this.currentObject.worked) {
-            if (timeoutFlag) {
-                setTimeout(() => {
-                    console.log(' == break === ');
-                    this.mainloop();
-                }, 1);
-            } else {
+            setTimeout(() => {
                 this.mainloop();
-            }
+            }, 1);
         } else {
             this.readFinalize();
             setTimeout(() => {
@@ -343,7 +326,7 @@ class XLoader {
         }
     }
     mainProc() {
-        let ref_timeout = false;
+        let breakFlag = false;
         while (true) {
             if (!this.currentObject.worked) {
                 switch (this.currentObject.type) {
@@ -371,7 +354,7 @@ class XLoader {
                         this.currentGeo.baseFrame = this.currentFrame;
                         this.makeBoneFromCurrentFrame();
                         this.readVertexDatas();
-                        ref_timeout = true;
+                        breakFlag = true;
                         break;
                     case "MeshNormals":
                         this.readVertexDatas();
@@ -405,7 +388,7 @@ class XLoader {
                         break;
                     case "AnimationKey":
                         this.readAnimationKey();
-                        ref_timeout = true;
+                        breakFlag = true;
                         break;
                 }
                 this.currentObject.worked = true;
@@ -415,7 +398,7 @@ class XLoader {
                 if (this.debug) {
                     console.log('processing ' + this.currentObject.name);
                 }
-                break;
+                if(breakFlag)break;
             } else {
                 if (this.currentObject.worked) {
                     if (this.currentObject.parent && !this.currentObject.parent.parent) {
@@ -425,12 +408,12 @@ class XLoader {
                 if (this.currentObject.parent) {
                     this.currentObject = this.currentObject.parent;
                 } else {
-                    ref_timeout = true;
+                    breakFlag = true;
                 }
-                break;
+                if(breakFlag)break;
             }
         }
-        return ref_timeout;
+        return;
     }
     changeRoot() {
         if (this.currentGeo != null && this.currentGeo.name) {
