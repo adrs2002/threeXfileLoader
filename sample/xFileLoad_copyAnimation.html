@@ -36,6 +36,15 @@
                       </select>
                     </td>
             </tr>
+            <tr>
+                <td>mech 2</td>
+                <td><select id="mech2_anime"  onchange="mech2_changeAnime(this.value)">
+                        <option value="" disabled selected style="display:none;"></option>
+                        <option value="stand">stand</option>
+                        <option value="wark">wark</option>
+                        <option value="attack">attack</option>
+                      </select></td>
+            </tr>
         </table>
     </div>
 
@@ -190,6 +199,7 @@
             if(actions[modelId][animeName]){
                 if(_callback){_callback();}         
             } else {
+
                 var loader2 = new THREE.XLoader(manager, Texloader);
                 loader2.load(['content/' + animeName + '.x', { zflag : true, putPos: false, putScl: false } ], function () {
 
@@ -210,6 +220,7 @@
                     actions[modelId][animeName].play();
 
                 },  onProgress, onError);
+                
             }
         }
 
@@ -223,6 +234,31 @@
 	                }
 	            })
             });                   
+        }
+
+        var model2Loading = false;
+        function mech2_changeAnime(val) {
+            if(Models.length < 2 && !model2Loading) {
+                model2Loading = true;
+                var loader = new THREE.XLoader(manager, Texloader);
+                loader.load(['content/SSR06_model.x',  { zflag : true }], function (object) {
+                        for (var i = 0; i < object.models.length; i++) {
+                            Models.push(object.models[i]);                    
+                        }
+                        mech2_changeAnime(val);
+                    object = null;
+                }, onProgress, onError);  
+            } else {
+                loadAnimation(val, 1, function () {
+	            Object.keys(actions[1]).forEach(function (p) {
+	                if(p == val){
+	                    actions[1][p].play();
+	                } else {
+	                	actions[1][p].stop();
+	                }
+	            })
+            });     
+            }
         }
 
     </script>
