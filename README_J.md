@@ -36,10 +36,11 @@ THREE.js
 2. Declaration `THREE.XLoader` を宣言します
 
 ```
-    var loader = new XFileLoader(manager, Texloader);
+    var loader = new THREE.XLoader(manager, Texloader);
 ```
 
-3. モデルデータを読み込み、シーンに追加します。下記はアニメーションがない場合のモデルデータの読み込みです
+3. モデルデータを読み込み、シーンに追加します。  
+下記はアニメーションがない場合のモデルデータの読み込みです
 
 ```
 
@@ -86,7 +87,7 @@ THREE.js
 
 ```
 
-    /// アニメーションを更新します。これは毎フレーム呼ぶ必要があります。
+アニメーションを更新します。これは毎フレーム呼ぶ必要があります。
 
 ```
 
@@ -108,14 +109,69 @@ THREE.js
 
 ```
 
+5. `assignAnimation`を使うことで、モデルとアニメーションが別のファイルになっている場合でも、アニメーションを結合させることができます。
+
+```
+
+    var Models = [];
+    var animates = [];
+
+    loader.load(['model.x'], function (object) {
+        for (var i = 0; i < object.models.length; i++) {
+                Models.push(object.models[i]);    
+                scene.add(Models[i]);             
+        }
+
+        var loader2 = new THREE.XLoader(manager, Texloader);
+        loader2.load(['anime.x'], function () {
+            
+            loader2.assignAnimation(Models[0]); 
+            animates.push(Models[0].animationMixer);
+            var stand = Models[0].animationMixer.clipAction(Models[0].geometry.animations[0].name);
+            stand.play();
+
+        }
+        object = null;
+    }, onProgress, onError);
+
+
+```
+
+6. 一部ソフトウェアからの出力結果で、モデルが左右に反転している場合は、第二引数のフラグを有効にしてください
+
+```
+
+    var Models = [];
+
+    loader.load(['example.x', true], function (object) {
+        for (var i = 0; i < object.models.length; i++) {
+                Models.push(object.models[i]);    
+                scene.add(Models[i]);             
+        }
+        object = null;
+    }, onProgress, onError);
+
+```
+
+7. マテリアルには、メインテクスチャ以外にも、下記のものが指定可能となっております。
+
+ プロパティ名| 説明  
+  --- |  ---  
+  TextureFilename | 通常のテクスチャマップです
+  BumpMapFilename | バンプマッピングを指定できます。
+  NormalMapFilename | ノーマルマッピングを指定できます。
+  EmissiveMapFilename | 発光マッピングを指定できます。
+  LightMapFilename | ライトマップを指定できます。
+
 ---------------------------------
-5. 免責事項
+8. 免責事項
 
 現状、読み込めるXファイルには、下記の制約があります。
 
 ・　ファイルは、テキストファイルである必要があります。バイナリタイプのXファイルには対応していません。  
-・　アニメーションを行うファイルを読み込む場合には、出力されるメッシュ(mesh)は１つのみにされるようにしてください。
+・　アニメーションを行うファイルを読み込む場合には、出力されるメッシュ(mesh)は１つのみにされるようにしてください。  
 　　2つ目以降のオブジェクトに関しては、動作の保証ができません。
+
 ---------------------------------
 ## LICENCE
  MIT.

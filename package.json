@@ -24,14 +24,25 @@
   },
   "scripts": {
     "build": "rollup -c rollup.config.js",
-    "build2": "babel src -d lib"
+    "build2": "babel src -d lib",
+    "lint": "eslint --fix threeXLoader.js"
+  },
+  "eslintConfig": {
+    "extends": "mdcs"
   },
   "author": "adrs2002",
   "license": "ISC",
   "private": true,
   "dependencies": {
     "babel-preset-es2015-rollup": "^3.0.0",
-    "rollup": "^0.50.0",
-    "rollup-plugin-babel": "^2.7.1"
+    "electron": "1.7.8",
+    "eslint": "^4.1.1",
+    "eslint-config-mdcs": "^4.2.2",
+    "google-closure-compiler": "^20170521.0.0",
+    "qunitjs": "^2.1.1",
+    "rollup": "^0.50.1",
+    "rollup-plugin-babel": "^2.7.1",
+    "rollup-watch": "^4.0.0",
+    "uglify-js": "^3.0.23"
   }
 }

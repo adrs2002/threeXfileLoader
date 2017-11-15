@@ -1,0 +1,161 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>three.js webgl - X-File loader</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+
+    <style>
+        body { font-family: Monospace; background-color: #000; color: #fff; margin: 0px; overflow: hidden; }
+
+        #info { color: #fff; position: absolute; top: 10px; width: 100%; text-align: center; z-index: 100; display: block; }
+
+        #info a, .button { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer; }
+    </style>
+    
+</head>
+
+<body>
+    <div id="info">
+		<a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test<br />
+	</div>
+    <div id="canvase3d"></div>
+
+    <!-- <script src="three.min.js"></script> -->
+    <script src="../three.js"></script>
+    <script src="lib/OrbitControls.js"></script>
+
+    <script src="../threeXLoader.js"></script>
+
+    <script src="lib/Detector.js"></script>
+    <script src="lib/stats.min.js"></script>
+    <!-- <script src='../../examples/js/libs/dat.gui.min.js'></script> -->
+    <script src='lib/dat.gui.min.js'></script>
+    <script>
+
+        if (!Detector.webgl) Detector.addGetWebGLMessage();
+        var container, stats, controls;
+        var camera, scene, renderer;
+        var clock = new THREE.Clock();
+        var gui = new dat.GUI();
+        var mixers = [];
+        var manager = null;
+        var Texloader = null;
+
+        var skeletonHelper = null;
+
+        var Models = [];
+
+        var d = new Date();
+        var LastDateTime = null;
+
+        var animates = [];
+        var actions = [];
+        init();
+
+        function init() {
+
+            LastDateTime = Date.now();
+
+            container = document.createElement('div');
+            document.body.appendChild(container);
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
+            scene = new THREE.Scene();
+            scene.add(new THREE.AmbientLight(0x999999));
+            // grid
+            var gridHelper = new THREE.GridHelper(14, 1, 0x303030, 0x303030);
+            gridHelper.position.set(0, -0.04, 0);
+            scene.add(gridHelper);
+            // stats
+            stats = new Stats();
+            container.appendChild(stats.dom);
+            
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x666666);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 2, 0);
+            camera.position.set(2, 7, 28);
+            camera.up.set(0, 1, 0);
+
+            var light = new THREE.DirectionalLight(0xeeeeff, 2);
+            light.position.set(10, 100, 1).normalize();
+            scene.add(light);
+
+            light = new THREE.DirectionalLight(0xaa5555);
+            light.position.set(-1, -1, -1).normalize();
+            scene.add(light);
+
+            controls.update();
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+
+            // model load
+            manager = new THREE.LoadingManager();
+            manager.onProgress = function (item, loaded, total) {
+                console.log(item, loaded, total);
+            };
+            var onProgress = function (xhr) {
+                if (xhr.lengthComputable) {
+                    var percentComplete = xhr.loaded / xhr.total * 100;
+                    console.log(Math.round(percentComplete, 2) + '% downloaded');
+                }
+            };
+            var onError = function (xhr) {
+            };
+
+            Texloader = new THREE.TextureLoader();
+            var loader = new THREE.XLoader(manager, Texloader);
+
+            //download Model file
+            loader.load(['content/tank_1.x', { zflag : true } ], function (object) {
+                for (var i = 0; i < object.models.length; i++) {
+                    Models.push(object.models[i]);
+                    scene.add(Models[i]);
+                }          
+                object = null;
+            }, onProgress, onError);
+
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        //
+        function animate() {
+
+            requestAnimationFrame(animate);
+            var nowTime = Date.now();
+            var dulTime = nowTime - LastDateTime;
+            LastDateTime = nowTime;
+
+            if (animates != null && animates.length > 0) {
+                for (var i = 0; i < animates.length; i++) {
+                    animates[i].update(dulTime);
+                }
+            }
+
+            if (Models != null && Models.length > 0) {
+                if (skeletonHelper != null) { skeletonHelper.update(); }
+
+            }
+
+            stats.update();
+            render();
+        }
+        function render() {
+            //renderer.setFaceCulling(THREE.CullFaceFront, THREE.FrontFaceDirectionCW);
+            renderer.render(scene, camera);
+        }
+
+    </script>
+
+</body>
+
+</html>

@@ -3,83 +3,45 @@
 
 export default class XAnimationObj {
 
-    constructor() {
+    constructor(_flags) {
 
         this.fps = 30;
         this.name = 'xanimation';
         this.length = 0;
         this.hierarchy = [];
 
+        this.putFlags = _flags;
+        if (this.putFlags.putPos === undefined) {
+            this.putFlags.putPos = true;
+        }
+        if (this.putFlags.putRot === undefined) {
+            this.putFlags.putRot = true;
+        }
+        if (this.putFlags.putScl === undefined) {
+            this.putFlags.putScl = true;
+        }
     }
 
     make(XAnimationInfoArray) {
-        for(let i =0; i < XAnimationInfoArray.length;i++){
+        for (let i = 0; i < XAnimationInfoArray.length; i++) {
             this.hierarchy.push(this.makeBonekeys(XAnimationInfoArray[i]));
         }
-        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length -1].time;
+        this.length = this.hierarchy[0].keys[this.hierarchy[0].keys.length - 1].time;
     }
 
-    clone(){
-       return Object.assign({}, this);
+    clone() {
+        return Object.assign({}, this);
     }
 
-    _make(XAnimationInfoArray, mesh) {
-
-        const keys = Object.keys(XAnimationInfoArray);
-        const hierarchy_tmp = [];
-        for (let i = 0; i < keys.length; i++) {
-
-            let bone = null;
-            let parent = -1;
-            let baseIndex = -1;
-
-            for (let m = 0; m < mesh.skeleton.bones.length; m++) {
-
-                if (mesh.skeleton.bones[m].name == XAnimationInfoArray[keys[i]].boneName) {
-
-                    bone = XAnimationInfoArray[keys[i]].boneName;
-                    parent = mesh.skeleton.bones[m].parent.name;
-                    baseIndex = m;
-                    break;
-
-                }
-
-            }
-
-            hierarchy_tmp[baseIndex] = this.makeBonekeys(XAnimationInfoArray[keys[i]], bone, parent);
-
-        }
-
-        const keys2 = Object.keys(hierarchy_tmp);
-        for (let i = 0; i < keys2.length; i++) {
-            this.hierarchy.push(hierarchy_tmp[i]);
-
-            let parentId = -1;
-            for (let m = 0; m < this.hierarchy.length; m++) {
-
-                if (i != m && this.hierarchy[i].parent === this.hierarchy[m].name) {
-
-                    parentId = m;
-                    break;
-
-                }
-
-            }
-
-            this.hierarchy[i].parent = parentId;
-
-        }
-
-    }
-
-
-    makeBonekeys(XAnimationInfo, bone, parent) {
+    makeBonekeys(XAnimationInfo) {
 
         const refObj = {};
         refObj.name = XAnimationInfo.boneName;
         refObj.parent = "";
         refObj.keys = this.keyFrameRefactor(XAnimationInfo);
-        refObj.copy = function(){return Object.assign({}, this);};
+        refObj.copy = function () {
+            return Object.assign({}, this);
+        };
         return refObj;
 
     }
@@ -91,24 +53,30 @@ export default class XAnimationObj {
             const keyframe = {};
             keyframe.time = XAnimationInfo.keyFrames[i].time * this.fps;
 
-            if(XAnimationInfo.keyFrames[i].pos){
+            if (XAnimationInfo.keyFrames[i].pos && this.putFlags.putPos) {
                 keyframe.pos = XAnimationInfo.keyFrames[i].pos;
             }
 
-            if(XAnimationInfo.keyFrames[i].rot){
+            if (XAnimationInfo.keyFrames[i].rot && this.putFlags.putRot) {
                 keyframe.rot = XAnimationInfo.keyFrames[i].rot;
             }
 
-            if(XAnimationInfo.keyFrames[i].scl){
+            if (XAnimationInfo.keyFrames[i].scl && this.putFlags.putScl) {
                 keyframe.scl = XAnimationInfo.keyFrames[i].scl;
             }
 
-            if(XAnimationInfo.keyFrames[i].matrix){
-                keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;    
-                keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
-                keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
-                keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
-            }            
+            if (XAnimationInfo.keyFrames[i].matrix) {
+                keyframe.matrix = XAnimationInfo.keyFrames[i].matrix;
+                if (this.putFlags.putPos) {
+                    keyframe.pos = new THREE.Vector3().setFromMatrixPosition(keyframe.matrix);
+                }
+                if (this.putFlags.putRot) {
+                    keyframe.rot = new THREE.Quaternion().setFromRotationMatrix(keyframe.matrix);
+                }
+                if (this.putFlags.putScl) {
+                    keyframe.scl = new THREE.Vector3().setFromMatrixScale(keyframe.matrix);
+                }
+            }
 
             keys.push(keyframe);
 
