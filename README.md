@@ -154,13 +154,14 @@ update animation
 
 ```
 
-The options that can be specified are as follows.(ver2.1現在)
+The options that can be specified are as follows.(ver2.1)
 
-  propertyName | valueType | default | example |   
-  zflag | bool | false | '{ zflag : true }` | output model flipped Y axis.
-  putPos | bool | true | '{ putPos : true }` | output positions animation. set 'false', not output positions animation. may be able to  Diversion animation.
-  putRot | bool | true | '{ putRot : true }` | output rotations animation.
-  putScl | bool | true | '{ putScl : true }` | output scales animation.
+  propertyName | valueType | default | example | context
+  --- | --- | --- | --- |  ---  
+  zflag | bool | false | `{ zflag : true }` | output model flipped Y axis.
+  putPos | bool | true | `{ putPos : true }` | output positions animation. set 'false', not output positions animation. may be able to  Diversion animation.
+  putRot | bool | true | `{ putRot : true }` | output rotations animation.
+  putScl | bool | true | `{ putScl : true }` | output scales animation.
 
 ```
     loader.load(['example.x', { zflag : true, putPos : false, putScl : false  } ], function (object) {
@@ -169,7 +170,7 @@ The options that can be specified are as follows.(ver2.1現在)
 
 7. `material` can set diffuse and another texture.
 
- name |   
+ name | context
   --- |  ---  
   TextureFilename | Diffuse mapping texture.
   BumpMapFilename | Bump mapping texture.

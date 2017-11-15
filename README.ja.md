@@ -155,11 +155,12 @@ THREE.js
 
 指定可能な第二引数でのオプション引数は、下記の通りです(ver2.1現在)
 
-  プロパティ名 | 型 | デフォルト | 例 | 説明
-  zflag | bool | false | '{ zflag : true }` | モデルをY軸を中心に反転します。
-  putPos | bool | true | '{ putPos : true }` | 位置に関するアニメーションを出力します。falseの場合、位置に関するアニメーションを出力しません。これにより、アニメーションが他キャラに流用できるかもしれません。
-  putRot | bool | true | '{ putRot : true }` | 回転に関するアニメーションのポジションを出力します。
-  putScl | bool | true | '{ putScl : true }` | スケールに関するアニメーションのポジションを出力します。
+  プロパティ名 | 型 | デフォルト | 例 | 説明  
+  --- | ---  | --- | --- | --- 
+  zflag | bool | false | `{ zflag : true }` | モデルをY軸を中心に反転します。
+  putPos | bool | true | `{ putPos : true }` | 位置に関するアニメーションを出力します。falseの場合、位置に関するアニメーションを出力しません。これにより、アニメーションが他キャラに流用できるかもしれません。
+  putRot | bool | true | `{ putRot : true }` | 回転に関するアニメーションのポジションを出力します。
+  putScl | bool | true | `{ putScl : true }` | スケールに関するアニメーションのポジションを出力します。
 
 ```
     loader.load(['example.x', { zflag : true, putPos : false, putScl : false  } ], function (object) {
@@ -168,8 +169,8 @@ THREE.js
 
 7. マテリアルには、メインテクスチャ以外にも、下記のものが指定可能となっております。
 
- プロパティ名| 説明  
-  --- |  ---  
+ プロパティ名 | 説明  
+  --- | ---  
   TextureFilename | 通常のテクスチャマップです
   BumpMapFilename | バンプマッピングを指定できます。
   NormalMapFilename | ノーマルマッピングを指定できます。
