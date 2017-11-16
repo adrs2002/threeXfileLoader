@@ -2,266 +2,347 @@
 <html lang="en">
 
 <head>
-    <title>three.js webgl - X-File loader</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<title>three.js webgl - X-File loader</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 
-    <style>
-        body { font-family: Monospace; background-color: #000; color: #fff; margin: 0px; overflow: hidden; }
+	<style>
+		body {
+			font-family: Monospace;
+			background-color: #000;
+			color: #fff;
+			margin: 0px;
+			overflow: hidden;
+		}
 
-        #info { color: #fff; position: absolute; top: 10px; width: 100%; text-align: center; z-index: 100; display: block; }
+		#info {
+			color: #fff;
+			position: absolute;
+			top: 10px;
+			width: 100%;
+			text-align: center;
+			z-index: 100;
+			display: block;
+		}
 
-        #info a, .button { color: #f00; font-weight: bold; text-decoration: underline; cursor: pointer; }
+		#info a,
+		.button {
+			color: #f00;
+			font-weight: bold;
+			text-decoration: underline;
+			cursor: pointer;
+		}
 
-        #info2 { color: #fff; background-color: #000; position: absolute; top: 3em; right : 0px; width: 10em; z-index: 200; display: block;  }
-    
-        td { padding: 0.5em;}
-    </style>
+		#info2 {
+			color: #fff;
+			background-color: #000;
+			position: absolute;
+			top: 3em;
+			right: 0px;
+			width: 10em;
+			z-index: 200;
+			display: block;
+		}
+
+		td {
+			padding: 0.5em;
+		}
+
+	</style>
 </head>
 
 <body>
-    <div id="info">
-        <a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test  <a href="https://github.com/adrs2002/threeXfileLoader" target="_new">see more info and samples</a> <br />
+	<div id="info">
+		<a href="http://threejs.org" target="_blank">three.js</a> - X-File Loader test <a href="https://github.com/adrs2002/threeXfileLoader" target="_new">see more info and samples</a> <br />
 
-    </div>
+	</div>
 
-    <div id="info2">
-        <table>
-            <tr>
-                <td>mech 1</td>
-                <td><select id="mech1_anime" onchange="mech1_changeAnime(this.value)">
+	<div id="info2">
+		<table>
+			<tr>
+				<td>mech 1</td>
+				<td><select id="mech1_anime" onchange="mech1_changeAnime(this.value)">
                         <option value="stand">stand</option>
                         <option value="wark">wark</option>
                         <option value="attack">attack</option>
                       </select>
-                    </td>
-            </tr>
-            <tr>
-                <td>mech 2</td>
-                <td><select id="mech2_anime"  onchange="mech2_changeAnime(this.value)">
+				</td>
+			</tr>
+			<tr>
+				<td>mech 2</td>
+				<td><select id="mech2_anime" onchange="mech2_changeAnime(this.value)">
                         <option value="" disabled selected style="display:none;"></option>
                         <option value="stand">stand</option>
                         <option value="wark">wark</option>
                         <option value="attack">attack</option>
                       </select></td>
-            </tr>
-        </table>
-    </div>
+			</tr>
+		</table>
+	</div>
 
-    <div id="canvase3d"></div>
+	<div id="canvase3d"></div>
 
-    <!-- <script src="three.min.js"></script> -->
-    <script src="../three.js"></script>
-    <script src="lib/OrbitControls.js"></script>
+	<!-- <script src="three.min.js"></script> -->
+	<script src="../three.js"></script>
+	<script src="lib/OrbitControls.js"></script>
 
-    <script src="../threeXLoader.js"></script>
+	<script src="../threeXLoader.js"></script>
 
-    <script src="lib/Detector.js"></script>
-    <script src="lib/stats.min.js"></script>
-    
-    <script>
+	<script src="lib/Detector.js"></script>
+	<script src="lib/stats.min.js"></script>
 
-        if (!Detector.webgl) Detector.addGetWebGLMessage();
-        var container, stats, controls;
-        var camera, scene, renderer;
-        var clock = new THREE.Clock();
-        var mixers = [];
-        var manager = null;
-        var Texloader = null;
+	<script>
+		if ( !Detector.webgl ) Detector.addGetWebGLMessage();
+		var container, stats, controls;
+		var camera, scene, renderer;
+		var clock = new THREE.Clock();
+		var mixers = [];
+		var manager = null;
+		var Texloader = null;
 
-        var skeletonHelper = null;
+		var skeletonHelper = null;
 
-        var Models = [];
+		var Models = [];
 
-        var d = new Date();
-        var LastDateTime = null;
+		var d = new Date();
+		var LastDateTime = null;
 
-        var animates = [];
-        var actions = [];
-        init();
+		var animates = [];
+		var actions = [];
 
-        var onProgress = function (xhr) {
-            if (xhr.lengthComputable) {
-                var percentComplete = xhr.loaded / xhr.total * 100;
-                console.log(Math.round(percentComplete, 2) + '% downloaded');
-            }
-        };
-        var onError = function (xhr) {};
+		var animationBase = [];
 
-        function init() {
+		init();
 
-            LastDateTime = Date.now();
+		var onProgress = function ( xhr ) {
+			if ( xhr.lengthComputable ) {
+				var percentComplete = xhr.loaded / xhr.total * 100;
+				console.log( Math.round( percentComplete, 2 ) + '% downloaded' );
+			}
+		};
+		var onError = function ( xhr ) {};
 
-            container = document.createElement('div');
-            document.body.appendChild(container);
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
-            scene = new THREE.Scene();
-            scene.add(new THREE.AmbientLight(0xaaaaaa));
-            // grid
-            var gridHelper = new THREE.GridHelper(14, 1, 0x303030, 0x303030);
-            gridHelper.position.set(0, -0.04, 0);
-            scene.add(gridHelper);
-            // stats
-            stats = new Stats();
-            container.appendChild(stats.dom);
-            
-            renderer = new THREE.WebGLRenderer();
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x666666);
-            container.appendChild(renderer.domElement);
+		function init() {
 
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.target.set(0, 5, 0);
-            camera.position.set(2, 10, -28);
-            camera.up.set(0, 1, 0);
+			LastDateTime = Date.now();
 
-            var light = new THREE.DirectionalLight(0xffffff, 1);
-            light.position.set(10, 100, -10).normalize();
-            scene.add(light);
+			container = document.createElement( 'div' );
+			document.body.appendChild( container );
+			camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
+			scene = new THREE.Scene();
+			scene.add( new THREE.AmbientLight( 0xaaaaaa ) );
+			// grid
+			var gridHelper = new THREE.GridHelper( 14, 1, 0x303030, 0x303030 );
+			gridHelper.position.set( 0, -0.04, 0 );
+			scene.add( gridHelper );
+			// stats
+			stats = new Stats();
+			container.appendChild( stats.dom );
 
-            light = new THREE.DirectionalLight(0x777666, 1);
-            light.position.set(-1, -1, -1).normalize();
-            scene.add(light);
+			renderer = new THREE.WebGLRenderer();
+			renderer.setPixelRatio( window.devicePixelRatio );
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			renderer.setClearColor( 0x666666 );
+			container.appendChild( renderer.domElement );
 
-            controls.update();
-            window.addEventListener('resize', onWindowResize, false);
-            animate();
+			controls = new THREE.OrbitControls( camera, renderer.domElement );
+			controls.target.set( 0, 5, 0 );
+			camera.position.set( 2, 10, -28 );
+			camera.up.set( 0, 1, 0 );
 
-            // model
-            manager = new THREE.LoadingManager();
-            manager.onProgress = function (item, loaded, total) {
-                console.log(item, loaded, total);
-            };
+			var light = new THREE.DirectionalLight( 0xffffff, 1 );
+			light.position.set( 10, 100, -10 )
+				.normalize();
+			scene.add( light );
 
-            Texloader = new THREE.TextureLoader();
-            var loader = new THREE.XLoader(manager, Texloader);
+			light = new THREE.DirectionalLight( 0x777666, 1 );
+			light.position.set( -1, -1, -1 )
+				.normalize();
+			scene.add( light );
 
-            actions[0] = {};
-            actions[1] = {};
-            //download Model file
-            loader.load(['content/SSR06_model.x',  { zflag : true }], function (object) {
+			controls.update();
+			window.addEventListener( 'resize', onWindowResize, false );
+			animate();
 
-                for (var i = 0; i < object.models.length; i++) {
-                    Models.push(object.models[i]);                    
-                }
+			// model
+			manager = new THREE.LoadingManager();
+			manager.onProgress = function ( item, loaded, total ) {
+				console.log( item, loaded, total );
+			};
 
-                loadAnimation('stand',0, () => {                 
-                    scene.add(Models[0]);
-                    if (Models[0] instanceof THREE.SkinnedMesh) {
-                        skeletonHelper = new THREE.SkeletonHelper(Models[0]);
-                        scene.add(skeletonHelper);
-                    }
-                });
+			Texloader = new THREE.TextureLoader();
+			var loader = new THREE.XLoader( manager, Texloader );
 
-                object = null;
-            }, onProgress, onError);
+			actions[ 0 ] = {};
+			actions[ 1 ] = {};
+			//download Model file
+			loader.load( [ 'content/SSR06_model.x', {
+				zflag: true
+			} ], function ( object ) {
 
-        }
+				for ( var i = 0; i < object.models.length; i++ ) {
+					Models.push( object.models[ i ] );
+				}
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-        //
-        function animate() {
+				loadAnimation( 'stand', 0, () => {
+					scene.add( Models[ 0 ] );
+					if ( Models[ 0 ] instanceof THREE.SkinnedMesh ) {
+						skeletonHelper = new THREE.SkeletonHelper( Models[ 0 ] );
+						scene.add( skeletonHelper );						
+						actions[ 0 ][ 'stand' ].play();
+					}
+				} );
 
-            requestAnimationFrame(animate);
-            var nowTime = Date.now();
-            var dulTime = nowTime - LastDateTime;
-            LastDateTime = nowTime;
+				object = null;
+			}, onProgress, onError );
 
-            if (animates != null && animates.length > 0) {
-                for (var i = 0; i < animates.length; i++) {
-                    animates[i].update(dulTime);
-                }
-            }
+		}
 
-            if (Models != null && Models.length > 0) {
-                if (skeletonHelper != null) {
-                    skeletonHelper.update();
-                }
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+		}
+		//
+		function animate() {
 
-            }
+			requestAnimationFrame( animate );
+			var nowTime = Date.now();
+			var dulTime = nowTime - LastDateTime;
+			LastDateTime = nowTime;
 
-            stats.update();
-            render();
-        }
+			if ( animates != null && animates.length > 0 ) {
+				for ( var i = 0; i < animates.length; i++ ) {
+					animates[ i ].update( dulTime );
+				}
+			}
 
-        function render() {
-            renderer.render(scene, camera);
-        }
+			if ( Models != null && Models.length > 0 ) {
+				if ( skeletonHelper != null ) {
+					skeletonHelper.update();
+				}
 
-        /////////////////////////////////////////////////////////////////////////////////
-        function loadAnimation(animeName, modelId, _callback) {
+			}
 
-            if(actions[modelId][animeName]){
-                if(_callback){_callback();}         
-            } else {
+			stats.update();
+			render();
+		}
 
-                var loader2 = new THREE.XLoader(manager, Texloader);
-                loader2.load(['content/' + animeName + '.x', { zflag : true, putPos: false, putScl: false } ], function () {
+		function render() {
+			renderer.render( scene, camera );
+		}
 
-                    // !! important!
-                    // associate divided model and animation.
-                    loader2.assignAnimation(Models[modelId]);
-                    if(!animates[modelId]){
-                        animates[modelId] = Models[modelId].animationMixer;
-                    }
+		/////////////////////////////////////////////////////////////////////////////////
+		function loadAnimation( animeName, modelId, _callback ) {
 
-                    actions[modelId][animeName] =  Models[modelId].animationMixer.clipAction(animeName);
-                    if (animeName == 'stand') {
-                        actions[modelId][animeName].setLoop(THREE.LoopOnce);
-                    }
-                    actions[modelId][animeName].clampWhenFinished = true;
-       
-                    if(_callback){_callback();}                
-                    actions[modelId][animeName].play();
+			if ( actions[ modelId ][ animeName ] ) {
+				if ( _callback ) {
+					_callback();
+				}
+			}
+			else {
 
-                },  onProgress, onError);
-                
-            }
-        }
+				var loader2 = new THREE.XLoader( manager, Texloader );
 
-        function mech1_changeAnime(val){
-            loadAnimation(val, 0, function () {
-	            Object.keys(actions[0]).forEach(function (p) {
-	                if(p == val){
-	                    actions[0][p].play();
-	                } else {
-	                	actions[0][p].stop();
-	                }
-	            })
-            });                   
-        }
+				function _assainAnimation() {
+					// !! important!
+					// associate divided model and animation.
+					loader2.assignAnimation( Models[ modelId ], animationBase[ animeName ] );
+					if ( !animates[ modelId ] ) {
+						animates[ modelId ] = Models[ modelId ].animationMixer;
+					}
 
-        var model2Loading = false;
-        function mech2_changeAnime(val) {
-            if(Models.length < 2 && !model2Loading) {
-                model2Loading = true;
-                var loader = new THREE.XLoader(manager, Texloader);
-                loader.load(['content/SSR06_model.x',  { zflag : true }], function (object) {
-                        for (var i = 0; i < object.models.length; i++) {
-                            Models.push(object.models[i]);                    
-                        }
-                        mech2_changeAnime(val);
-                    object = null;
-                }, onProgress, onError);  
-            } else {
-                loadAnimation(val, 1, function () {
-	            Object.keys(actions[1]).forEach(function (p) {
-	                if(p == val){
-	                    actions[1][p].play();
-	                } else {
-	                	actions[1][p].stop();
-	                }
-	            })
-            });     
-            }
-        }
+					actions[ modelId ][ animeName ] = Models[ modelId ].animationMixer.clipAction( animeName );
+					if ( animeName == 'stand' ) {
+						actions[ modelId ][ animeName ].setLoop( THREE.LoopOnce );
+					}
+					actions[ modelId ][ animeName ].clampWhenFinished = true;
 
-    </script>
+					if ( _callback ) {
+						_callback();
+						return;
+					}
+				}
+
+				if ( !animationBase[ animeName ] ) {
+
+					loader2.load( [ 'content/' + animeName + '.x', {
+						zflag: true,
+						putPos: false,
+						putScl: false
+					} ], function () {
+						animationBase[ animeName ] = this.animations[ 0 ];
+						_assainAnimation();
+
+					}, onProgress, onError );
+
+				}
+				else {
+
+					_assainAnimation();
+
+				}
+
+			}
+		}
+
+		function mech1_changeAnime( val ) {
+			loadAnimation( val, 0, function () {
+				Object.keys( actions[ 0 ] )
+					.forEach( function ( p ) {
+						if ( p == val ) {
+							actions[ 0 ][ p ].play();
+						}
+						else {
+							actions[ 0 ][ p ].stop();
+						}
+					} )
+			} );
+		}
+
+		var model2Loading = false;
+
+		/**
+		* this is model 2 loading method.
+		*/
+		function mech2_changeAnime( val ) {
+			/*
+			* 1st. if model 2 doesn't load yet, load model 2 
+			*/
+			if ( Models.length < 2 && !model2Loading ) {
+				model2Loading = true;
+				var loader = new THREE.XLoader( manager, Texloader );
+				loader.load( [ 'content/SSR06_model.x', {
+					zflag: true
+				} ], function ( object ) {
+					for ( var i = 0; i < object.models.length; i++ ) {
+						Models.push( object.models[ i ] );
+						scene.add( Models[ 1 ] );
+						Models[ 1 ].position.x = 7;
+						Models[ 1 ].position.z = 7;
+						var skeletonHelper2 = new THREE.SkeletonHelper( Models[ 1 ] );
+						scene.add( skeletonHelper2 );	
+					}
+					object = null;
+					mech2_changeAnime( val );					
+				}, onProgress, onError );
+			}
+			else {
+				loadAnimation( val, 1, function () {
+					Object.keys( actions[ 1 ] )
+						.forEach( function ( p ) {
+							if ( p == val ) {
+								actions[ 1 ][ p ].play();
+							}
+							else {
+								actions[ 1 ][ p ].stop();
+							}
+						} )
+				} );
+			}
+		}
+
+	</script>
 
 </body>
 

@@ -1,11 +1,11 @@
-import nodeResolve  from 'rollup-plugin-node-resolve'
+import nodeResolve from 'rollup-plugin-node-resolve';
 import cleanup from 'rollup-plugin-cleanup';
-import babel from 'rollup-plugin-babel'
+import babel from 'rollup-plugin-babel';
 
 export default {
   input: './src/XLoader.js',
   output: {
-    file: './threeXLoader.js',
+    file: './XLoader.js',
     format: 'umd',
     name: 'THREE.XLoader'
   },
