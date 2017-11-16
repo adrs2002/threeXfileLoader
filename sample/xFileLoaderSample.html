@@ -206,7 +206,7 @@
                     }
                     actions[modelId][animeName].clampWhenFinished = true;
        
-                    if(_callback){_callback();}                
+                    if(_callback){_callback(); return;}                
                     actions[modelId][animeName].play();
 
                 },  onProgress, onError);
