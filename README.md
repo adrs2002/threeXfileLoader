@@ -16,7 +16,7 @@ THREE.js
 
 ##how to use
 
-0. read 2 .js file. `three.js(three.min.js)` and `threeXLoader.js`　load code your HTML file.
+0. read 2 .js file. `three.js(three.min.js)` and `XLoader.js`　load code your HTML file.
 
 1.   Declaration  `THREE.LoadingManager` and `THREE.TextureLoader` 
  like this 

@@ -86,7 +86,7 @@
 	<script src="../three.js"></script>
 	<script src="lib/OrbitControls.js"></script>
 
-	<script src="../threeXLoader.js"></script>
+	<script src="../XLoader.js"></script>
 
 	<script src="lib/Detector.js"></script>
 	<script src="lib/stats.min.js"></script>
@@ -188,8 +188,7 @@
 					scene.add( Models[ 0 ] );
 					if ( Models[ 0 ] instanceof THREE.SkinnedMesh ) {
 						skeletonHelper = new THREE.SkeletonHelper( Models[ 0 ] );
-						scene.add( skeletonHelper );						
-						actions[ 0 ][ 'stand' ].play();
+						scene.add( skeletonHelper );
 					}
 				} );
 
@@ -262,6 +261,7 @@
 						_callback();
 						return;
 					}
+
 				}
 
 				if ( !animationBase[ animeName ] ) {
@@ -271,9 +271,8 @@
 						putPos: false,
 						putScl: false
 					} ], function () {
-						animationBase[ animeName ] = this.animations[ 0 ];
+						animationBase[ animeName ] = loader2.animations( 0 );
 						_assainAnimation();
-
 					}, onProgress, onError );
 
 				}
@@ -302,13 +301,7 @@
 
 		var model2Loading = false;
 
-		/**
-		* this is model 2 loading method.
-		*/
 		function mech2_changeAnime( val ) {
-			/*
-			* 1st. if model 2 doesn't load yet, load model 2 
-			*/
 			if ( Models.length < 2 && !model2Loading ) {
 				model2Loading = true;
 				var loader = new THREE.XLoader( manager, Texloader );
@@ -317,14 +310,9 @@
 				} ], function ( object ) {
 					for ( var i = 0; i < object.models.length; i++ ) {
 						Models.push( object.models[ i ] );
-						scene.add( Models[ 1 ] );
-						Models[ 1 ].position.x = 7;
-						Models[ 1 ].position.z = 7;
-						var skeletonHelper2 = new THREE.SkeletonHelper( Models[ 1 ] );
-						scene.add( skeletonHelper2 );	
 					}
+					mech2_changeAnime( val );
 					object = null;
-					mech2_changeAnime( val );					
 				}, onProgress, onError );
 			}
 			else {

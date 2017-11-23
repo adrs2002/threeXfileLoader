@@ -14,7 +14,7 @@ THREE.js
 
 ## 使い方的な。
 
-0. `three.js(three.min.js)`　と `threeXLoader.js`　の２つのファイルの読み込みを行います。
+0. `three.js(three.min.js)`　と `XLoader.js`　の２つのファイルの読み込みを行います。
 
 1.  `THREE.LoadingManager` と `THREE.TextureLoader`　の定義をしておきます  
 (これらは必須ではありませんが、あると非常に役に立ちます)
