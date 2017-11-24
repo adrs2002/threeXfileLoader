@@ -80,13 +80,9 @@ export default class XLoader {
 
 	}
 
-	//読み込み開始命令部
-	load(_arg, onLoad, onProgress, onError) {
-
-		const loader = new THREE.FileLoader(this.manager);
-		loader.setResponseType('arraybuffer');
-
-		for (let i = 0; i < _arg.length; i++) {
+	_setArgOption(_arg, _start = 0) {
+		if(!_arg) { return; }
+		for (let i = _start; i < _arg.length; i++) {
 			switch (i) {
 				case 0:
 					this.url = _arg[i];
@@ -99,6 +95,15 @@ export default class XLoader {
 		if (this.options === undefined) {
 			this.options = {};
 		}
+	} 
+
+	//読み込み開始命令部
+	load(_arg, onLoad, onProgress, onError) {
+
+		this._setArgOption(_arg);
+
+		const loader = new THREE.FileLoader(this.manager);
+		loader.setResponseType('arraybuffer');
 
 		loader.load(this.url, (response) => {
 
@@ -106,6 +111,12 @@ export default class XLoader {
 
 		}, onProgress, onError);
 
+	}
+
+	// DL済みのレスポンスデータから読み込みを行う
+	fromResponsedData(_data, _arg, onLoad) {
+		this._setArgOption(_arg);
+		this._parse(_data, onLoad);
 	}
 
 	/**
@@ -164,7 +175,7 @@ export default class XLoader {
 		return false;
 	}
 
-	ensureBinary(buf) {
+	_ensureBinary(buf) {
 
 		if (typeof buf === "string") {
 
@@ -184,7 +195,7 @@ export default class XLoader {
 		}
 	}
 
-	ensureString(buf) {
+	_ensureString(buf) {
 
 		if (typeof buf !== "string") {
 			const array_buffer = new Uint8Array(buf);
@@ -205,8 +216,8 @@ export default class XLoader {
 	//解析を行う前に、バイナリファイルかテキストファイルかを判別する。今はテキストファイルしか対応できていないので・・・
 	_parse(data, onLoad) {
 
-		const binData = this.ensureBinary(data);
-		this._data = this.ensureString(data);
+		const binData = this._ensureBinary(data);
+		this._data = this._ensureString(data);
 		this.onLoad = onLoad;
 		return this._isBinary(binData)
 			? this._parseBinary(binData)
@@ -241,7 +252,7 @@ export default class XLoader {
 		this._hierarchieParse(this.Hierarchies, endRead);
 		this._changeRoot();
 		this._currentObject = this.Hierarchies.children.shift();
-		this.mainloop();
+		this._mainloop();
 
 	}
 
@@ -305,14 +316,14 @@ export default class XLoader {
 		};
 	}
 
-	mainloop() {
+	_mainloop() {
 
-		this.mainProc();
+		this._mainProc();
 		if (this._currentObject.parent || this._currentObject.children.length > 0 || !this._currentObject
 			.worked) {
 			// this._currentObject = this._currentObject.parent;
 			setTimeout(() => {
-				this.mainloop();
+				this._mainloop();
 			}, 1);
 		} else {
 			this._readFinalize();
@@ -325,7 +336,7 @@ export default class XLoader {
 		}
 	}
 
-	mainProc() {
+	_mainProc() {
 		let breakFlag = false;
 		while (true) {
 			if (!this._currentObject.worked) {
@@ -351,7 +362,13 @@ export default class XLoader {
 						this._currentGeo.name = this._currentObject.name.trim();
 						this._currentGeo.parentName = this._getParentName(this._currentObject).trim();
 						this._currentGeo.VertexSetedBoneCount = [];
-						this._currentGeo.Geometry = new THREE.Geometry();
+						this._currentGeo.Geometry = new THREE.BufferGeometry();
+						this._currentGeo.vertices = [];
+						this._currentGeo.uvs = [];
+						this._currentGeo.normals = [];
+						this._currentGeo.skinIndices = [];
+						this._currentGeo.skinWeights = [];
+						this._currentGeo.indices = [];
 						this._currentGeo.Materials = [];
 						this._currentGeo.normalVectors = [];
 						this._currentGeo.BoneInfs = [];
@@ -562,10 +579,12 @@ export default class XLoader {
 							case 0:
 								this._readNormalVector1(this._currentObject.data.substr(endRead, find - endRead));
 								break;
+								/*
 							case 1:
 								this._readNormalFace1(this._currentObject.data.substr(endRead, find - endRead),
 									nowReadedLine);
 								break;
+								*/
 						}
 						break;
 				}
@@ -592,28 +611,35 @@ export default class XLoader {
 	_readVertex1(line) {
 		//頂点が確定
 		const data = this._readLine(line.trim()).substr(0, line.length - 2).split(";");
-		this._currentGeo.Geometry.vertices.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(data[1]), parseFloat(data[2])));
+
+		this._currentGeo.vertices.push(parseFloat(data[0]));
+		this._currentGeo.vertices.push(parseFloat(data[1]));
+		this._currentGeo.vertices.push(parseFloat(data[2]));
 		//頂点を作りながら、Skin用構造も作成してしまおう
-		this._currentGeo.Geometry.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
-		this._currentGeo.Geometry.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
+		this._currentGeo.skinIndices.push(new THREE.Vector4(0, 0, 0, 0));
+		this._currentGeo.skinWeights.push(new THREE.Vector4(1, 0, 0, 0));
 		this._currentGeo.VertexSetedBoneCount.push(0);
 	}
 
 	_readFace1(line) {
 		// 面に属する頂点数,頂点の配列内index という形で入っている
 		const data = this._readLine(line.trim()).substr(2, line.length - 4).split(",");
-		this._currentGeo.Geometry.faces.push(new THREE.Face3(parseInt(data[0], 10), parseInt(data[1],
-			10), parseInt(data[2], 10), new THREE.Vector3(1, 1, 1).normalize()));
+
+		this._currentGeo.indices.push(parseInt(data[0], 10));
+		this._currentGeo.indices.push(parseInt(data[1], 10));
+		this._currentGeo.indices.push(parseInt(data[2], 10));
 	}
 
 	_readNormalVector1(line) {
 		const data = this._readLine(line.trim()).substr(0, line.length - 2).split(";");
 		if (this.options.zflag) {
-			this._currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]) * -1,
-				parseFloat(data[1]) * -1, parseFloat(data[2]) * -1));
+			this._currentGeo.normals.push(parseFloat(data[0]) * -1);
+			this._currentGeo.normals.push(parseFloat(data[1]) * -1);
+			this._currentGeo.normals.push(parseFloat(data[2]) * -1);
 		} else {
-			this._currentGeo.normalVectors.push(new THREE.Vector3(parseFloat(data[0]), parseFloat(
-				data[1]), parseFloat(data[2])));
+			this._currentGeo.normals.push(parseFloat(data[0]));
+			this._currentGeo.normals.push(parseFloat(data[1]));
+			this._currentGeo.normals.push(parseFloat(data[2]));
 		}
 	}
 
@@ -653,6 +679,7 @@ export default class XLoader {
 							mode = 2;
 							mode_local = 0;
 						}
+						
 						const line = this._currentObject.data.substr(endRead, find - endRead);
 						const data = this._readLine(line.trim()).split(";");
 						this._currentGeo.normalVectors.push([parseFloat(data[0]), parseFloat(data[1]),
@@ -670,8 +697,8 @@ export default class XLoader {
 
 	_setMeshTextureCoords() {
 		this._tmpUvArray = [];
-		this._currentGeo.Geometry.faceVertexUvs = [];
-		this._currentGeo.Geometry.faceVertexUvs.push([]);
+		//this._currentGeo.Geometry.faceVertexUvs = [];
+		//this._currentGeo.Geometry.faceVertexUvs.push([]);
 
 		let endRead = 0;
 		let totalV = 0;
@@ -696,10 +723,12 @@ export default class XLoader {
 						const line = this._currentObject.data.substr(endRead, find - endRead);
 						const data = this._readLine(line.trim()).split(";");
 						if (this.IsUvYReverse) {
-							this._tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), 1 - parseFloat(data[
-								1])));
+							this._currentGeo.uvs.push(parseFloat(data[0]));
+							this._currentGeo.uvs.push(1 - parseFloat(data[1]));
 						} else {
-							this._tmpUvArray.push(new THREE.Vector2(parseFloat(data[0]), parseFloat(data[1])));
+							
+							this._currentGeo.uvs.push(parseFloat(data[0]));
+							this._currentGeo.uvs.push(parseFloat(data[1]));
 						}
 						endRead = find + 1;
 					}
@@ -709,19 +738,7 @@ export default class XLoader {
 				break;
 			}
 		}
-		//UV読み込み完了。メッシュにUVを割り当てる
-		this._currentGeo.Geometry.faceVertexUvs[0] = [];
-		for (var m = 0; m < this._currentGeo.Geometry.faces.length; m++) {
-			this._currentGeo.Geometry.faceVertexUvs[0][m] = [];
-			this._currentGeo.Geometry.faceVertexUvs[0][m].push(this._tmpUvArray[this._currentGeo.Geometry
-				.faces[m].a]);
-			this._currentGeo.Geometry.faceVertexUvs[0][m].push(this._tmpUvArray[this._currentGeo.Geometry
-				.faces[m].b]);
-			this._currentGeo.Geometry.faceVertexUvs[0][m].push(this._tmpUvArray[this._currentGeo.Geometry
-				.faces[m].c]);
-
-		}
-		this._currentGeo.Geometry.uvsNeedUpdate = true;
+		
 	}
 
 	_setMeshMaterialList() {
@@ -729,6 +746,7 @@ export default class XLoader {
 		let mode = 0;
 		let mode_local = 0;
 		let readCount = 0;
+		
 		while (true) {
 			if (mode_local < 2) {
 				const refO = this._readInt1(endRead);
@@ -744,9 +762,21 @@ export default class XLoader {
 				}
 				const line = this._currentObject.data.substr(endRead, find - endRead);
 				const data = this._readLine(line.trim()).split(",");
+				
+				let lastMaterial = 0;
+				let putCount = 0;
+				let putStart = 0;
 				for (let i = 0; i < data.length; i++) {
-					this._currentGeo.Geometry.faces[i].materialIndex = parseInt(data[i]);
+					
+					if(lastMaterial != data[i]){
+						this._currentGeo.Geometry.addGroup( putStart, putCount, lastMaterial );
+						putStart = i;
+						putCount = 0;
+						lastMaterial = parseInt(data[i]);
+					}
+					putCount++;
 				}
+				this._currentGeo.Geometry.addGroup( putStart, putCount, lastMaterial );
 				endRead = this._currentObject.data.length;
 			}
 			if (endRead >= this._currentObject.data.length || mode >= 3) {
@@ -924,6 +954,12 @@ export default class XLoader {
 	_makeOutputGeometry() {
 
 		//１つのmesh終了
+
+		this._currentGeo.Geometry.setIndex( this._currentGeo.indices );
+		this._currentGeo.Geometry.addAttribute( 'position', new THREE.Float32BufferAttribute( this._currentGeo.vertices, 3 ) );
+		this._currentGeo.Geometry.addAttribute( 'normal', new THREE.Float32BufferAttribute( this._currentGeo.normals, 3 ) );
+		this._currentGeo.Geometry.addAttribute( 'uv', new THREE.Float32BufferAttribute( this._currentGeo.uvs, 2 ) );
+
 		this._currentGeo.Geometry.computeBoundingBox();
 		this._currentGeo.Geometry.computeBoundingSphere();
 
@@ -961,21 +997,21 @@ export default class XLoader {
 
 					switch (this._currentGeo.VertexSetedBoneCount[nowVertexID]) {
 						case 0:
-							this._currentGeo.Geometry.skinIndices[nowVertexID].x = boneIndex;
-							this._currentGeo.Geometry.skinWeights[nowVertexID].x = nowVal;
+							this._currentGeo.skinIndices[nowVertexID].x = boneIndex;
+							this._currentGeo.skinWeights[nowVertexID].x = nowVal;
 							break;
 
 						case 1:
-							this._currentGeo.Geometry.skinIndices[nowVertexID].y = boneIndex;
-							this._currentGeo.Geometry.skinWeights[nowVertexID].y = nowVal;
+							this._currentGeo.skinIndices[nowVertexID].y = boneIndex;
+							this._currentGeo.skinWeights[nowVertexID].y = nowVal;
 							break;
 						case 2:
-							this._currentGeo.Geometry.skinIndices[nowVertexID].z = boneIndex;
-							this._currentGeo.Geometry.skinWeights[nowVertexID].z = nowVal;
+							this._currentGeo.skinIndices[nowVertexID].z = boneIndex;
+							this._currentGeo.skinWeights[nowVertexID].z = nowVal;
 							break;
 						case 3:
-							this._currentGeo.Geometry.skinIndices[nowVertexID].w = boneIndex;
-							this._currentGeo.Geometry.skinWeights[nowVertexID].w = nowVal;
+							this._currentGeo.skinIndices[nowVertexID].w = boneIndex;
+							this._currentGeo.skinWeights[nowVertexID].w = nowVal;
 							break;
 
 					}
@@ -999,14 +1035,29 @@ export default class XLoader {
 				}
 			}
 
-			const bufferGeometry = new THREE.BufferGeometry().fromGeometry(this._currentGeo.Geometry);
-			bufferGeometry.bones = putBones;
-			mesh = new THREE.SkinnedMesh(bufferGeometry, this._currentGeo.Materials.length === 1 ? this._currentGeo.Materials[0] : this._currentGeo.Materials);
+			const putSkinIndices = [];
+			const putSkinWeights = [];
+			for(let i = 0; i < this._currentGeo.VertexSetedBoneCount.length;i++){
+				putSkinIndices.push(this._currentGeo.skinIndices[i].x);
+				putSkinIndices.push(this._currentGeo.skinIndices[i].y);
+				putSkinIndices.push(this._currentGeo.skinIndices[i].z);
+				putSkinIndices.push(this._currentGeo.skinIndices[i].w);
+
+				putSkinWeights.push(this._currentGeo.skinWeights[i].x);
+				putSkinWeights.push(this._currentGeo.skinWeights[i].y);
+				putSkinWeights.push(this._currentGeo.skinWeights[i].z);
+				putSkinWeights.push(this._currentGeo.skinWeights[i].w);
+			}
+
+			this._currentGeo.Geometry.addAttribute( 'skinIndex', new THREE.Float32BufferAttribute( putSkinIndices, 4 ) );
+			this._currentGeo.Geometry.addAttribute( 'skinWeight', new THREE.Float32BufferAttribute( putSkinWeights, 4 ) );
+
+			this._currentGeo.Geometry.bones = putBones;
+			mesh = new THREE.SkinnedMesh(this._currentGeo.Geometry, this._currentGeo.Materials.length === 1 ? this._currentGeo.Materials[0] : this._currentGeo.Materials);
 			mesh.skeleton.boneInverses = offsetList;
 		} else {
 
-			const bufferGeometry = new THREE.BufferGeometry().fromGeometry(this._currentGeo.Geometry);
-			mesh = new THREE.Mesh(bufferGeometry, this._currentGeo.Materials.length === 1 ? this._currentGeo.Materials[0] : this._currentGeo.Materials);
+			mesh = new THREE.Mesh(this._currentGeo.Geometry, this._currentGeo.Materials.length === 1 ? this._currentGeo.Materials[0] : this._currentGeo.Materials);
 		}
 
 		mesh.name = this._currentGeo.name;

@@ -216,13 +216,6 @@
 				}
 			}
 
-			if ( Models != null && Models.length > 0 ) {
-				if ( skeletonHelper != null ) {
-					skeletonHelper.update();
-				}
-
-			}
-
 			stats.update();
 			render();
 		}
@@ -271,7 +264,7 @@
 						putPos: false,
 						putScl: false
 					} ], function () {
-						animationBase[ animeName ] = loader2.animations( 0 );
+						animationBase[ animeName ] = loader2.animations[ 0 ];
 						_assainAnimation();
 					}, onProgress, onError );
 
@@ -311,6 +304,8 @@
 					for ( var i = 0; i < object.models.length; i++ ) {
 						Models.push( object.models[ i ] );
 					}
+					Models[1].position.x = 5;
+					scene.add( Models[ 1 ] );
 					mech2_changeAnime( val );
 					object = null;
 				}, onProgress, onError );
