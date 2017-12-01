@@ -112,7 +112,7 @@
             var loader = new THREE.XLoader(manager, Texloader);
 
             //download Model file
-            loader.load(['content/BZ02.x', { zflag : true } ], function (object) {
+            loader.load(['content/SSR06_model.x', { zflag : true } ], function (object) {
                 for (var i = 0; i < object.models.length; i++) {
                     Models.push(object.models[i]);
                     scene.add(Models[i]);
