@@ -131,9 +131,12 @@
             actions[0] = {};
             actions[1] = {};
             //download Model file
-            loader.load(['content/SSR06_model.x',  { zflag : true }], function (object) {
+            loader.load(['content/SSR06_model.x'], function (object) {
 
                 for (var i = 0; i < object.models.length; i++) {
+                    // ! infomation
+                    // if loaded model are looks like [ flip x axis ], Please [ scale.x = -1 ] as below
+                    object.models[i].scale.x = -1;
                     Models.push(object.models[i]);                    
                 }
 

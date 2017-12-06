@@ -117,8 +117,10 @@ export default class XLoader {
 
 	// DL済みのレスポンスデータから読み込みを行う
 	fromResponsedData( _data, _arg, onLoad ) {
+
 		this._setArgOption( _arg );
 		this._parse( _data, onLoad );
+
 	}
 
 	/**
@@ -245,7 +247,8 @@ export default class XLoader {
 			}
 
 			return str;
-
+			
+			// return THREE.Loader.decodeText( new Uint8Array( buf ) );
 		}
 		else {
 
@@ -368,15 +371,14 @@ export default class XLoader {
 	mainloop() {
 
 		this.mainProc();
-		if ( this._currentObject.parent || this._currentObject.children.length > 0 || !this._currentObject
-			.worked ) {
+		if ( this._currentObject.parent || this._currentObject.children.length > 0 || !this._currentObject.worked ) {
 			// this._currentObject = this._currentObject.parent;
 			setTimeout( () => {
 				this.mainloop();
 			}, 1 );
 		}
 		else {
-			this._readFinalize();
+			// this._readFinalize();
 			setTimeout( () => {
 				this.onLoad( {
 					models: this.Meshes,
@@ -684,14 +686,8 @@ export default class XLoader {
 		const data = this._readLine( line.trim() )
 			.substr( 0, line.length - 2 )
 			.split( ";" );
-		if ( this.options.zflag ) {
-			this._currentGeo.normalVectors.push( new THREE.Vector3( parseFloat( data[ 0 ] ) * -1,
-				parseFloat( data[ 1 ] ) * -1, parseFloat( data[ 2 ] ) * -1 ) );
-		}
-		else {
-			this._currentGeo.normalVectors.push( new THREE.Vector3( parseFloat( data[ 0 ] ), parseFloat(
-				data[ 1 ] ), parseFloat( data[ 2 ] ) ) );
-		}
+		this._currentGeo.normalVectors.push( new THREE.Vector3( parseFloat( data[ 0 ] ), parseFloat(
+			data[ 1 ] ), parseFloat( data[ 2 ] ) ) );
 	}
 
 	_readNormalFace1( line, nowReaded ) {
@@ -846,13 +842,7 @@ export default class XLoader {
 			color: Math.random() * 0xffffff
 		} );
 
-		if ( this.options.zflag ) {
-			_nowMat.side = THREE.BackSide;
-		}
-		else {
-			_nowMat.side = THREE.FrontSide;
-		}
-
+		_nowMat.side = THREE.FrontSide;
 		_nowMat.name = this._currentObject.name;
 
 		let endRead = 0;
