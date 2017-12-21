@@ -1257,17 +1257,24 @@ export default class XLoader {
 				const c_key = animation.hierarchy[ 0 ].copy();
 				c_key.name = model.skeleton.bones[ b ].name;
 				c_key.parent = -1;
-				for ( let k = 0; k < c_key.keys.length; k++ ) {
-					if ( c_key.keys[ k ].pos ) {
-						c_key.keys[ k ].pos.set( 0, 0, 0 );
+				c_key.keys = [];
+				for ( let k = 0; k < animation.hierarchy[ 0 ].keys.length; k++ ) {
+					const key_value = {};
+					key_value.time = animation.hierarchy[ 0 ].keys[ k ].time;
+					if ( animation.hierarchy[ 0 ].keys[ k ].pos ) {
+						key_value.pos = new THREE.Vector3();
 					}
-					if ( c_key.keys[ k ].scl ) {
-						c_key.keys[ k ].scl.set( 1, 1, 1 );
+					if ( animation.hierarchy[ 0 ].keys[ k ].scl ) {
+						key_value.scl = new THREE.Vector3();
+						key_value.scl.set( 1, 1, 1 );
 					}
-					if ( c_key.keys[ k ].rot ) {
-						c_key.keys[ k ].rot.set( 0, 0, 0, 1 );
+					if ( animation.hierarchy[ 0 ].keys[ k ].rot ) {
+						key_value.rot = new THREE.Quaternion();
+						key_value.rot.set( 0, 0, 0, 1 );
 					}
+					c_key.keys.push(key_value);
 				}
+
 				put.hierarchy.push( c_key );
 			}
 		}

@@ -439,17 +439,14 @@
 
 				if ( typeof buf !== "string" ) {
 
-					const array_buffer = new Uint8Array( buf );
-					let str = '';
-					for ( let i = 0; i < buf.byteLength; i ++ ) {
+					var array_buffer = new Uint8Array( buf );
+					var str = '';
+					for ( var i = 0; i < buf.byteLength; i ++ ) {
 
-						str += String.fromCharCode( array_buffer[ i ] ); // implicitly assumes little-endian
+						str += String.fromCharCode( array_buffer[ i ] );
 
 					}
-
 					return str;
-					// fixme : if decodeText merged, this line enable.
-					// return THREE.Loader.decodeText( new Uint8Array( buf ) );
 
 				} else {
 
@@ -1548,23 +1545,29 @@
 						var _c_key = animation.hierarchy[ 0 ].copy();
 						_c_key.name = model.skeleton.bones[ b ].name;
 						_c_key.parent = - 1;
-						for ( var k = 0; k < _c_key.keys.length; k ++ ) {
+						_c_key.keys = [];
+						for ( var k = 0; k < animation.hierarchy[ 0 ].keys.length; k ++ ) {
 
-							if ( _c_key.keys[ k ].pos ) {
+							var key_value = {};
+							key_value.time = animation.hierarchy[ 0 ].keys[ k ].time;
+							if ( animation.hierarchy[ 0 ].keys[ k ].pos ) {
 
-								_c_key.keys[ k ].pos.set( 0, 0, 0 );
-
-							}
-							if ( _c_key.keys[ k ].scl ) {
-
-								_c_key.keys[ k ].scl.set( 1, 1, 1 );
+								key_value.pos = new THREE.Vector3();
 
 							}
-							if ( _c_key.keys[ k ].rot ) {
+							if ( animation.hierarchy[ 0 ].keys[ k ].scl ) {
 
-								_c_key.keys[ k ].rot.set( 0, 0, 0, 1 );
+								key_value.scl = new THREE.Vector3();
+								key_value.scl.set( 1, 1, 1 );
 
 							}
+							if ( animation.hierarchy[ 0 ].keys[ k ].rot ) {
+
+								key_value.rot = new THREE.Quaternion();
+								key_value.rot.set( 0, 0, 0, 1 );
+
+							}
+							_c_key.keys.push( key_value );
 
 						}
 						put.hierarchy.push( _c_key );
